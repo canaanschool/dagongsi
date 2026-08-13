@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>다공시 · 교사용</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="다공시 교사용">
+<meta name="theme-color" content="#FBF6F1">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+<style>
+  :root{
+    --paper:#FBF6F1; --card:#FFFFFF; --ink:#413A34; --ink2:#7C7169;
+    --line:#DCD1C6; --line2:#C2B4A7; --soft:#F6EDE5; --gap:#F2EAE2; --half:#EFE7E0;
+    --c7:#C0533A;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{background:var(--paper);color:var(--ink);font-size:14px;
+    font-family:Pretendard,'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,sans-serif;
+    padding:16px 20px 40px}
+  .wrap{max-width:1240px;margin:0 auto}
+  input,textarea,select{font:inherit;color:var(--ink);background:transparent;border:none;outline:none}
+  .btn{font:inherit;font-weight:700;font-size:12.5px;background:transparent;color:var(--ink2);
+    border:1px solid var(--line2);border-radius:999px;padding:7px 13px;cursor:pointer}
+  .btn:active{background:var(--soft)}
+  .btn.on{background:var(--c7);border-color:var(--c7);color:#fff}
+
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:11px}
+  .brand .name{font-size:20px;font-weight:800;letter-spacing:-1px}
+  .brand .tag{font-size:11px;font-weight:800;color:#fff;background:var(--ink);
+    border-radius:5px;padding:3px 7px}
+  .brand .full{font-size:11.5px;font-weight:600;color:var(--ink2)}
+  .brand .ver{margin-left:auto;font-size:10px;font-weight:700;color:#C3B7AB}
+
+  .bar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;
+    padding-bottom:11px;margin-bottom:14px;border-bottom:1px solid var(--line)}
+  .who{display:flex;gap:5px;flex-wrap:wrap}
+  .vr{width:1px;height:20px;background:var(--line);margin:0 4px}
+  .wk{border:1px solid var(--line2);background:var(--card);border-radius:8px;width:27px;height:27px;
+    cursor:pointer;font-size:13px;font-weight:800;color:var(--ink2)}
+  .wklabel{font-size:13.5px;font-weight:800;white-space:nowrap}
+  .wklabel em{font-size:11.5px;font-weight:600;color:var(--ink2);font-style:normal;margin-left:5px}
+  .stat{font-size:11.5px;font-weight:700;color:var(--ink2);margin-left:auto}
+  .stat.err{color:var(--c7)}
+
+  h2{font-size:16px;font-weight:800;letter-spacing:-.3px;margin-bottom:9px}
+  h2 span{font-size:11.5px;font-weight:600;color:var(--ink2);margin-left:8px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 15px;margin-bottom:16px}
+  .sec{margin-bottom:18px}
+
+  /* 숫자 */
+  .nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:9px}
+  .n{background:var(--soft);border-radius:10px;padding:10px 12px}
+  .n b{display:block;font-size:20px;font-weight:800;letter-spacing:-.6px;font-variant-numeric:tabular-nums}
+  .n i{display:block;font-size:11px;font-weight:700;color:var(--ink2);font-style:normal;margin-top:2px}
+  .n.warn b{color:var(--c7)}
+
+  /* 격자 */
+  .gridbox{display:grid;grid-template-columns:46px 34px 1fr;min-width:940px}
+  .hl{grid-column:3;position:relative;height:16px;border-bottom:1.5px solid var(--line2)}
+  .hl span{position:absolute;bottom:3px;transform:translateX(-50%);font-size:9.5px;font-weight:700;color:var(--ink2)}
+  .hl span.f{transform:none;left:0} .hl span.l{transform:none;right:0;left:auto}
+  .sp{border-bottom:1.5px solid var(--line2)}
+  .day{grid-column:1;grid-row:span 2;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-size:12px;font-weight:800;background:var(--soft);
+    border-right:1.5px solid var(--line2);border-bottom:1.5px solid var(--line2)}
+  .day i{font-style:normal;font-size:9px;font-weight:700;color:var(--ink2)}
+  .kd{display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;
+    color:var(--ink2);border-right:1.5px solid var(--line2)}
+  .kd.p{border-bottom:1px solid var(--line)} .kd.r{border-bottom:1.5px solid var(--line2)}
+  .tr{position:relative;background-color:var(--gap);
+    background-image:repeating-linear-gradient(45deg,transparent 0 4px,rgba(0,0,0,.035) 4px 5px),
+      linear-gradient(to right,var(--half) 0 1px,transparent 1px 100%),
+      linear-gradient(to right,var(--line) 0 1px,transparent 1px 100%);
+    background-size:auto,calc(100%/36) 100%,calc(100%/18) 100%;border-right:1px solid var(--line)}
+  .tr.p{height:26px;border-bottom:1px solid var(--line)}
+  .tr.r{height:32px;border-bottom:1.5px solid var(--line2)}
+  .sg{position:absolute;top:0;bottom:0;border-right:1px solid rgba(255,255,255,.5)}
+  .lb{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;
+    font-size:10px;font-weight:800;color:#fff;overflow:hidden;white-space:nowrap;z-index:2;
+    text-shadow:0 1px 2px rgba(0,0,0,.22)}
+  .scroll{overflow-x:auto}
+
+  /* 그래프 */
+  .charts{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:900px){ .charts{grid-template-columns:1fr} }
+  svg{display:block;width:100%;height:auto}
+  .lg{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;font-weight:700;color:var(--ink2);margin-top:8px}
+  .lg i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+  /* 약속 */
+  .pm textarea{width:100%;height:62px;border:1px solid var(--line);border-radius:10px;
+    padding:10px 12px;font-weight:600;resize:none;line-height:1.5}
+  .pm textarea:focus{border-color:var(--c7)}
+  .pmrow{display:flex;align-items:center;gap:9px;margin-top:9px}
+  .pmrow .hint{font-size:11.5px;color:var(--ink2);font-weight:600}
+  .save{background:var(--c7);color:#fff;border:none;border-radius:9px;padding:9px 18px;
+    font:inherit;font-weight:800;font-size:13px;cursor:pointer}
+
+  .notes{font-size:12.5px;font-weight:600;line-height:1.7;color:var(--ink2)}
+  .empty{font-size:12.5px;color:var(--ink2);font-weight:600;padding:18px 0;text-align:center}
+
+  /* 잠금 */
+  .veil{position:fixed;inset:0;background:rgba(65,58,52,.5);display:flex;align-items:center;
+    justify-content:center;z-index:50;padding:20px}
+  .veil.hide{display:none}
+  .modal{background:var(--card);border-radius:16px;padding:26px 28px;width:330px;max-width:100%}
+  .modal h3{font-size:17px;font-weight:800;margin-bottom:4px}
+  .modal p{font-size:12.5px;color:var(--ink2);font-weight:500;margin-bottom:16px}
+  .mf{border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:10px}
+  .mf:focus-within{border-color:var(--c7)}
+  .mf label{display:block;font-size:10.5px;font-weight:800;color:var(--ink2);margin-bottom:2px}
+  .mf input{width:100%;font-weight:700;font-size:15px}
+  .go{width:100%;background:var(--c7);color:#fff;border:none;border-radius:10px;padding:12px;
+    font:inherit;font-weight:800;font-size:14px;cursor:pointer}
+  .err{font-size:12px;font-weight:700;color:var(--c7);margin-top:9px;min-height:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="name">다공시</div><span class="tag">교사용</span>
+    <div class="full">주간 기록 보기</div>
+    <span class="ver" id="ver"></span>
+  </div>
+
+  <div class="bar">
+    <div class="who" id="who"></div>
+    <div class="vr"></div>
+    <button class="wk" id="pw">‹</button>
+    <button class="wk" id="nw">›</button>
+    <div class="wklabel" id="wkl"></div>
+    <button class="btn" id="tw">이번 주</button>
+    <span class="stat" id="stat"></span>
+  </div>
+
+  <div id="body"></div>
+</div>
+
+<div class="veil" id="veil"><div class="modal">
+  <h3>교사용 화면</h3>
+  <p>선생님 비밀번호를 넣어주세요.</p>
+  <div class="mf"><label>비밀번호</label><input id="pin" type="password" inputmode="numeric" placeholder="****"></div>
+  <button class="go" id="pgo">들어가기</button>
+  <div class="err" id="perr"></div>
+</div></div>
+
+<script>
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZDNxPIpfp8DsOm0s4PD3dITCl-6z-DEfL7NNGUvty7IJ6s_GQ/exec';
+const APP_VER   = 'v1';
+const SEMESTER_START = '2026-08-24';
+
+const CATS = [
+  {k:'pray',  n:'기도 · 묵상', c:'#7C5A86', s:'P'},
+  {k:'school',n:'학교',        c:'#3F5E8C', s:'S'},
+  {k:'rest',  n:'잠 · 휴식',   c:'#8A8781', s:'R'},
+  {k:'acad',  n:'학원 · 과외', c:'#3F8A78', s:'A'},
+  {k:'play',  n:'노는 시간',   c:'#BE831F', s:'L'},
+  {k:'etc',   n:'기타',        c:'#7C8A3C', s:'E'},
+  {k:'study', n:'공부',        c:'#C0533A', s:'T'},
+];
+const BYS = {}; CATS.forEach(c=>BYS[c.s]=c);
+const DAYS=['MON','TUE','WED','THU','FRI','SAT'], KOR=['월','화','수','목','금','토'];
+const H0=6, NH=18, NS=36, FADE='A6';
+const $=id=>document.getElementById(id);
+const pad=n=>String(n).padStart(2,'0');
+const ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const addD=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x;};
+const mondayOf=d=>{const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDate()-((x.getDay()+6)%7));return x;};
+const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+const num=v=>{const n=parseFloat(v); return isNaN(n)?0:n;};
+const fmt=v=>(v%1?v.toFixed(1):String(v));
+
+let PIN='', ROSTER=[], cur=null, rows=[], curWeek=ymd(mondayOf(new Date()));
+const weekNo=w=>Math.round((new Date(w+'T00:00:00')-mondayOf(new Date(SEMESTER_START+'T00:00:00')))/604800000)+1;
+const setStat=(t,e)=>{$('stat').textContent=t; $('stat').classList.toggle('err',!!e);};
+
+/* ── 잠금 ── */
+$('pgo').onclick=async()=>{
+  PIN=$('pin').value.trim();
+  if(!SHEET_URL){ $('perr').textContent='SHEET_URL이 비어 있습니다'; return; }
+  try{
+    const r=await fetch(SHEET_URL+'?t='+Date.now());
+    const j=await r.json();
+    if(!j.ok){ $('perr').textContent='시트를 읽지 못했습니다'; return; }
+    ROSTER=j.roster||[];
+    if(!ROSTER.length){ $('perr').textContent='명단이 비어 있습니다'; return; }
+    /* 비밀번호는 첫 학생 조회로 확인합니다 */
+    const t=await getStudent(ROSTER[0]);
+    if(t===null){ $('perr').textContent='비밀번호가 다릅니다'; return; }
+    $('veil').classList.add('hide');
+    buildWho(); pick(ROSTER[0]);
+  }catch(e){ $('perr').textContent='연결에 실패했습니다'; }
+};
+$('pin').addEventListener('keydown',e=>{ if(e.key==='Enter') $('pgo').click(); });
+
+/* ── 학생 / 주차 ── */
+function buildWho(){
+  $('who').innerHTML=ROSTER.map((r,i)=>
+    `<button class="btn" data-i="${i}">${esc(r.name)}</button>`).join('');
+  $('who').querySelectorAll('button').forEach(b=>b.onclick=()=>pick(ROSTER[+b.dataset.i]));
+}
+function paintWho(){
+  $('who').querySelectorAll('button').forEach((b,i)=>
+    b.classList.toggle('on', ROSTER[i]===cur));
+}
+function paintWeek(){
+  const a=new Date(curWeek+'T00:00:00'), b=addD(a,5), n=weekNo(curWeek);
+  const now=ymd(mondayOf(new Date()));
+  $('wkl').innerHTML=(n>=1?`${n}주차`:`${a.getFullYear()}년`)
+    +` <em>${a.getMonth()+1}/${a.getDate()} ~ ${b.getMonth()+1}/${b.getDate()}</em>`
+    +(curWeek===now?'<em>· 이번 주</em>':'');
+  $('tw').style.display = curWeek===now?'none':'';
+}
+$('pw').onclick=()=>{ curWeek=ymd(addD(new Date(curWeek+'T00:00:00'),-7)); paintWeek(); render(); };
+$('nw').onclick=()=>{ curWeek=ymd(addD(new Date(curWeek+'T00:00:00'), 7)); paintWeek(); render(); };
+$('tw').onclick=()=>{ curWeek=ymd(mondayOf(new Date())); paintWeek(); render(); };
+
+async function getStudent(r){
+  const u=`${SHEET_URL}?what=student&pin=${encodeURIComponent(PIN)}`
+        +`&grade=${r.grade}&cls=${r.cls}&num=${r.num}&t=${Date.now()}`;
+  const res=await fetch(u); const j=await res.json();
+  if(!j.ok) return null;
+  return j.rows||[];
+}
+async function pick(r){
+  cur=r; paintWho(); paintWeek(); setStat('불러오는 중');
+  const got=await getStudent(r);
+  if(got===null){ setStat('불러오지 못했습니다',true); return; }
+  rows=got; setStat(`기록 ${rows.length}주`); render();
+}
+
+/* ── 격자 ── */
+function unpack(str){
+  const out={};
+  (str||'').split('|').forEach((line,d)=>{
+    for(let i=0;i<line.length;i++){ const ch=line[i]; if(ch!=='.') out[`${d}-${i}`]=ch; }
+  });
+  return out;
+}
+function runsOf(g,d){
+  const out=[]; let i=0;
+  while(i<NS){
+    const k=g[`${d}-${i}`];
+    if(!k){i++;continue;}
+    let j=i; while(j+1<NS && g[`${d}-${j+1}`]===k) j++;
+    out.push({k,s:i,e:j+1}); i=j+1;
+  }
+  return out;
+}
+function matchRuns(p,r,d){
+  const out=[]; let i=0;
+  while(i<NS){
+    const a=p[`${d}-${i}`], b=r[`${d}-${i}`];
+    if(!a||a!==b){i++;continue;}
+    let j=i;
+    while(j+1<NS){ const a2=p[`${d}-${j+1}`], b2=r[`${d}-${j+1}`];
+      if(a2&&a2===b2&&a2===a) j++; else break; }
+    out.push({k:a,s:i,e:j+1}); i=j+1;
+  }
+  return out;
+}
+const pc=r=>`left:${r.s/NS*100}%;width:${(r.e-r.s)/NS*100}%`;
+function trackHTML(g,fits){
+  let h='';
+  const seg=(r,fade)=>{const c=BYS[r.k]; if(!c) return '';
+    return `<div class="sg" style="${pc(r)};background:${c.c}${fade?FADE:''}"></div>`;};
+  g.forEach(r=>h+=seg(r,true));
+  fits.forEach(r=>h+=seg(r,false));
+  g.forEach(r=>{ const c=BYS[r.k]; if(!c||r.e-r.s<2) return;
+    h+=`<div class="lb" style="${pc(r)}">${c.n}</div>`; });
+  return h;
+}
+function gridHTML(row){
+  const P=unpack(row.grid&&row.grid.p), R=unpack(row.grid&&row.grid.r);
+  const base=new Date(curWeek+'T00:00:00');
+  let h='<div class="sp"></div><div class="sp"></div><div class="hl">';
+  for(let i=0;i<=NH;i++){
+    const cls=i===0?' class="f"':(i===NH?' class="l"':'');
+    h+=`<span${cls} style="left:${i/NH*100}%">${pad(H0+i)}</span>`;
+  }
+  h+='</div>';
+  DAYS.forEach((d,di)=>{
+    const dt=addD(base,di), fits=matchRuns(P,R,di);
+    h+=`<div class="day">${d}<i>${dt.getMonth()+1}/${dt.getDate()}</i></div>`;
+    h+=`<div class="kd p">계획</div><div class="tr p">${trackHTML(runsOf(P,di),fits)}</div>`;
+    h+=`<div class="kd r">실행</div><div class="tr r">${trackHTML(runsOf(R,di),fits)}</div>`;
+  });
+  return `<div class="scroll"><div class="gridbox">${h}</div></div>`;
+}
+
+/* ── 그래프 ── */
+function lineChart(list){
+  const W=560,H=200,L=34,R=10,T=14,B=26;
+  if(list.length<1) return '';
+  const xs=(i)=>L+(list.length===1?(W-L-R)/2:i*(W-L-R)/(list.length-1));
+  const max=Math.max(12,...list.map(r=>Math.max(num(r.study),num(r.rest))));
+  const ys=v=>H-B-(v/max)*(H-T-B);
+  const path=(f,col)=>{
+    const d=list.map((r,i)=>`${i?'L':'M'}${xs(i).toFixed(1)},${ys(f(r)).toFixed(1)}`).join(' ');
+    return `<path d="${d}" fill="none" stroke="${col}" stroke-width="2.2"
+      stroke-linejoin="round" stroke-linecap="round"/>`
+      + list.map((r,i)=>`<circle cx="${xs(i).toFixed(1)}" cy="${ys(f(r)).toFixed(1)}" r="2.6" fill="${col}"/>`).join('');
+  };
+  let g='';
+  for(let i=0;i<=3;i++){ const v=max*i/3, y=ys(v);
+    g+=`<line x1="${L}" y1="${y.toFixed(1)}" x2="${W-R}" y2="${y.toFixed(1)}" stroke="#E6DCD2" stroke-width="1"/>`
+      +`<text x="${L-6}" y="${(y+3.5).toFixed(1)}" font-size="9.5" fill="#8C8178" text-anchor="end">${Math.round(v)}</text>`;
+  }
+  const lab=list.map((r,i)=>
+    `<text x="${xs(i).toFixed(1)}" y="${H-8}" font-size="9.5" fill="#8C8178" text-anchor="middle">${weekNo(r.week)}</text>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}">${g}${lab}${path(r=>num(r.study),'#C0533A')}${path(r=>num(r.rest),'#8A8781')}</svg>`
+    + `<div class="lg"><span><i style="background:#C0533A"></i>공부</span>
+        <span><i style="background:#8A8781"></i>잠 · 휴식</span>
+        <span style="margin-left:auto">가로축 주차 · 세로축 시간</span></div>`;
+}
+function fitChart(list){
+  const W=560,H=200,L=34,R=10,T=14,B=26;
+  if(!list.length) return '';
+  const max=Math.max(6,...list.map(r=>num(r.plan)));
+  const ys=v=>H-B-(v/max)*(H-T-B);
+  const bw=Math.min(30,(W-L-R)/list.length*0.62);
+  let g='';
+  for(let i=0;i<=3;i++){ const v=max*i/3, y=ys(v);
+    g+=`<line x1="${L}" y1="${y.toFixed(1)}" x2="${W-R}" y2="${y.toFixed(1)}" stroke="#E6DCD2" stroke-width="1"/>`
+      +`<text x="${L-6}" y="${(y+3.5).toFixed(1)}" font-size="9.5" fill="#8C8178" text-anchor="end">${Math.round(v)}</text>`;
+  }
+  const bars=list.map((r,i)=>{
+    const cx=L+(i+0.5)*(W-L-R)/list.length, x=cx-bw/2, y0=H-B;
+    const box=(v,col,op)=>`<rect x="${x.toFixed(1)}" y="${ys(num(v)).toFixed(1)}" width="${bw.toFixed(1)}"
+      height="${(y0-ys(num(v))).toFixed(1)}" fill="${col}" opacity="${op}" rx="2"/>`;
+    return box(r.plan,'#C2B4A7',.45)+box(r.fitWeek,'#3F8A78',.45)
+         + box(r.fitDay,'#3F8A78',.7)+box(r.fitSlot,'#3F8A78',1)
+         + `<text x="${cx.toFixed(1)}" y="${H-8}" font-size="9.5" fill="#8C8178" text-anchor="middle">${weekNo(r.week)}</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${W} ${H}">${g}${bars}</svg>`
+    + `<div class="lg"><span><i style="background:#C2B4A7;opacity:.6"></i>계획</span>
+        <span><i style="background:#3F8A78;opacity:.45"></i>주 총량</span>
+        <span><i style="background:#3F8A78;opacity:.7"></i>일 총량</span>
+        <span><i style="background:#3F8A78"></i>시간대</span></div>`;
+}
+function bandChart(row){
+  const P=unpack(row.grid&&row.grid.r);
+  const W=560, rowH=22, gapY=6, H=6*(rowH+gapY);
+  let out='';
+  DAYS.forEach((d,di)=>{
+    const y=di*(rowH+gapY);
+    out+=`<text x="0" y="${y+15}" font-size="10.5" font-weight="700" fill="#7C7169">${KOR[di]}</text>`;
+    out+=`<rect x="22" y="${y}" width="${W-22}" height="${rowH}" fill="#F2EAE2" rx="3"/>`;
+    runsOf(P,di).forEach(r=>{
+      const c=BYS[r.k]; if(!c) return;
+      const x=22+(r.s/NS)*(W-22), w=((r.e-r.s)/NS)*(W-22);
+      out+=`<rect x="${x.toFixed(1)}" y="${y}" width="${w.toFixed(1)}" height="${rowH}" fill="${c.c}" rx="2"/>`;
+    });
+  });
+  return `<svg viewBox="0 0 ${W} ${H}">${out}</svg>`
+    + `<div class="lg">${CATS.map(c=>`<span><i style="background:${c.c}"></i>${c.n}</span>`).join('')}</div>`;
+}
+
+/* ── 본문 ── */
+function render(){
+  if(!cur){ $('body').innerHTML=''; return; }
+  const row=rows.find(r=>r.week===curWeek);
+  const list=rows.filter(r=>num(r.plan)||num(r.study)).sort((a,b)=>a.week<b.week?-1:1);
+  let h='';
+
+  if(!row){
+    h+=`<div class="card"><div class="empty">이 주에는 기록이 없습니다</div></div>`;
+  }else{
+    const gapH=num(row.gap);
+    h+=`<div class="sec"><h2>이 주 숫자</h2><div class="card"><div class="nums">
+      ${n('계획',fmt(num(row.plan))+'h')}
+      ${n('공부',fmt(num(row.study))+'h')}
+      ${n('잠 · 휴식',fmt(num(row.rest))+'h')}
+      ${n('땜빵',fmt(gapH)+'h',gapH>72)}
+      ${n('기록률',row.logged||'—')}
+      ${n('시간대',fmt(num(row.fitSlot))+'h')}
+      ${n('일 총량',fmt(num(row.fitDay))+'h')}
+      ${n('주 총량',fmt(num(row.fitWeek))+'h')}
+      ${n('달성률',row.rate||'—')}
+      ${n('계획표',(row.days||0)+'일')}
+    </div></div></div>`;
+
+    h+=`<div class="sec"><h2>주간 계획 실행표<span>읽기 전용 · 계획과 실행이 겹치는 만큼 진해집니다</span></h2>
+        <div class="card">${gridHTML(row)}</div></div>`;
+
+    h+=`<div class="sec"><h2>하루 흐름<span>실행 기준</span></h2>
+        <div class="card">${bandChart(row)}</div></div>`;
+
+    if(row.note) h+=`<div class="sec"><h2>한 줄 평가</h2>
+        <div class="card notes">${esc(row.note)}</div></div>`;
+  }
+
+  if(list.length){
+    h+=`<div class="sec"><h2>학기 흐름</h2><div class="charts">
+      <div class="card">${lineChart(list)}</div>
+      <div class="card">${fitChart(list)}</div>
+    </div></div>`;
+  }
+
+  h+=`<div class="sec"><h2>이번 주 약속<span>학생 앱 첫 화면에 그 주 내내 표시됩니다</span></h2>
+      <div class="card pm">
+        <textarea id="pmt" placeholder="상담에서 같이 정한 한 가지를 적어주세요">${esc(row?row.promise:'')}</textarea>
+        <div class="pmrow"><button class="save" id="pms">저장</button>
+          <span class="hint" id="pmh"></span></div>
+      </div></div>`;
+
+  $('body').innerHTML=h;
+  if($('pms')) $('pms').onclick=savePromise;
+}
+const n=(label,val,warn)=>`<div class="n${warn?' warn':''}"><b>${val}</b><i>${label}</i></div>`;
+
+async function savePromise(){
+  const text=$('pmt').value.trim();
+  $('pmh').textContent='저장 중';
+  try{
+    const res=await fetch(SHEET_URL,{method:'POST',body:JSON.stringify({
+      action:'promise', pin:PIN, week:curWeek,
+      grade:cur.grade, cls:cur.cls, num:cur.num, text
+    })});
+    const j=await res.json();
+    if(j.ok){
+      $('pmh').textContent='저장했습니다';
+      const r=rows.find(x=>x.week===curWeek); if(r) r.promise=text;
+      else { rows.push({week:curWeek, promise:text, grid:{}}); }
+      setTimeout(()=>{ if($('pmh')) $('pmh').textContent=''; },2500);
+    }else $('pmh').textContent='저장하지 못했습니다';
+  }catch(e){ $('pmh').textContent='연결에 실패했습니다'; }
+}
+
+$('ver').textContent=APP_VER;
+paintWeek();
+</script>
+</body>
+</html>
