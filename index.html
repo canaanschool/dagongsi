@@ -294,7 +294,7 @@ const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZ
 const TOKEN     = 'canaan2026';
 const PIN       = '1225';
 /* 학기 첫 주의 월요일. 여기 기준으로 몇 주차인지 셉니다. */
-const APP_VER = 'v20';
+const APP_VER = 'v21';
 const SEMESTER_START = '2026-09-07';
 
 const CATS = [
@@ -751,7 +751,7 @@ function summarize(){
     study : R.out.study.reduce((a,b)=>a+b,0),
     rest  : R.out.rest.reduce((a,b)=>a+b,0),
     gap,
-    logged: Math.round((1 - gap/144)*100)+'%',      /* 기록률 */
+    logged: Math.round((1 - gap/(NH*6))*100)+'%',   /* 기록률 : 06~24시 구간 기준 */
     plan  : F.plan,
     fitSlot: F.slot, fitDay: F.day, fitWeek: F.week,
     rate  : tot?Math.round(done/tot*100)+'%':'',
