@@ -121,7 +121,9 @@
   .sum tr.tot td{background:var(--soft);border-top:1.5px solid var(--line2);font-weight:800}
   .sum tr.gapfill td.it .sw{background:var(--gap);
     background-image:repeating-linear-gradient(45deg,transparent 0 4px,rgba(0,0,0,.09) 4px 5px)}
-  .foot{font-size:11.5px;color:var(--ink2);font-weight:500;margin-top:10px;line-height:1.6}
+  .foot{font-size:11.5px;color:var(--ink2);font-weight:500;margin-top:10px;line-height:1.75}
+  .foot b{color:var(--ink)}
+  .foot .fit{color:var(--ink2)}
   .warn{color:var(--c7);font-weight:700}
 
   .dayTabs{display:flex;gap:5px;flex-wrap:wrap}
@@ -595,8 +597,14 @@ function renderSum(){
     + DAYS.map(()=>cell(NH+SLEEP_FIXED,NH+SLEEP_FIXED)).join('')+'</tr>';
   $('sum').innerHTML=h;
   const rf=R.fill.reduce((a,b)=>a+b,0), rs=R.out.study.reduce((a,b)=>a+b,0);
-  $('foot').innerHTML=`이 주 실행 기준 · 공부 <b>${fmt(rs)}시간</b> · 땜빵 <b class="${rf>36?'warn':''}">${fmt(rf)}시간</b>`
-    + (rf>36?' — 땜빵이 많다는 건 시간을 못 썼다기보다 기록이 덜 됐다는 뜻입니다.':'');
+  const F=fitness();
+  $('foot').innerHTML =
+    `이 주 실행 기준 · 공부 <b>${fmt(rs)}시간</b> · 땜빵 <b class="${rf>36?'warn':''}">${fmt(rf)}시간</b>`
+    + (F.plan ? `<br><span class="fit">계획 <b>${fmt(F.plan)}시간</b> 중에서 · `
+        + `계획한 시간에 그대로 <b>${fmt(F.slot)}</b> · `
+        + `그날 안에 <b>${fmt(F.day)}</b> · `
+        + `그 주 안에 <b>${fmt(F.week)}</b></span>` : '')
+    + (rf>36?'<br>땜빵이 많다는 건 시간을 못 썼다기보다 기록이 덜 됐다는 뜻입니다.':'');
 }
 
 /* ══ 일일 ══ */
@@ -691,14 +699,61 @@ async function saveWeek(){
 async function saveProfile(){
   try{ await store.set('sdl:profile', JSON.stringify({profile, curWeek, curDay})); }catch(e){}
 }
+/* 일치율 3분할
+   slot : 계획한 그 시각에 그 항목을 했나
+   day  : 시간대는 달라도 그날 안에 그 항목을 채웠나
+   week : 요일도 달라도 그 주 안에 채웠나
+   구조상 항상 slot <= day <= week 가 됩니다 */
+function fitness(){
+  let slot=0, day=0;
+  const wp={}, wr={};                    /* 주간 항목별 총량 */
+  for(let d=0; d<6; d++){
+    slot += matchRuns(d).reduce((a,r)=>a+(r.e-r.s),0);
+    const dp={}, dr={};
+    for(let i=0;i<NS;i++){
+      const p=W.plan[`${d}-${i}`], r=W.run[`${d}-${i}`];
+      if(p){ dp[p]=(dp[p]||0)+1; wp[p]=(wp[p]||0)+1; }
+      if(r){ dr[r]=(dr[r]||0)+1; wr[r]=(wr[r]||0)+1; }
+    }
+    Object.keys(dp).forEach(k=>{ day += Math.min(dp[k], dr[k]||0); });
+  }
+  let week=0;
+  Object.keys(wp).forEach(k=>{ week += Math.min(wp[k], wr[k]||0); });
+  const planned = Object.values(wp).reduce((a,b)=>a+b,0);
+  return { plan:planned/2, slot:slot/2, day:day/2, week:week/2 };
+}
+
+/* 격자를 짧은 글자로 압축합니다. 요일마다 36칸, 항목은 한 글자
+   교사용 화면에서 이 문자열로 그 주 격자를 그대로 되살립니다 */
+const CODE1 = {pray:'P', school:'S', rest:'R', acad:'A', play:'L', etc:'E', study:'T'};
+function packGrid(mode){
+  return DAYS.map((_,d)=>{
+    let out='';
+    for(let i=0;i<NS;i++){ const k=W[mode][`${d}-${i}`]; out += k?CODE1[k]:'.'; }
+    return out;
+  }).join('|');
+}
+
 function summarize(){
-  const R=tally('run');
-  let fit=0; for(let d=0;d<6;d++) fit+=matchRuns(d).reduce((a,r)=>a+(r.e-r.s),0)/2;
-  let done=0,tot=0;
-  DAYS.forEach(k=>{const t=W.daily[k].todos.filter(x=>x.t.trim());
-    tot+=t.length; done+=t.filter(x=>x.done).length;});
-  return {study:R.out.study.reduce((a,b)=>a+b,0), gap:R.fill.reduce((a,b)=>a+b,0),
-          fit, rate: tot?Math.round(done/tot*100)+'%':''};
+  const R=tally('run'), F=fitness();
+  let done=0,tot=0,days=0;
+  DAYS.forEach(k=>{
+    const t=W.daily[k].todos.filter(x=>x.t.trim());
+    if(t.length) days++;
+    tot+=t.length; done+=t.filter(x=>x.done).length;
+  });
+  const gap=R.fill.reduce((a,b)=>a+b,0);
+  return {
+    study : R.out.study.reduce((a,b)=>a+b,0),
+    rest  : R.out.rest.reduce((a,b)=>a+b,0),
+    gap,
+    logged: Math.round((1 - gap/144)*100)+'%',      /* 기록률 */
+    plan  : F.plan,
+    fitSlot: F.slot, fitDay: F.day, fitWeek: F.week,
+    rate  : tot?Math.round(done/tot*100)+'%':'',
+    days,                                            /* 계획표 작성 일수 */
+    note  : DAYS.map(k=>W.daily[k].eval.trim()).filter(Boolean).join(' / ')
+  };
 }
 let syncT=null;
 function queueSync(){ if(!SHEET_URL) return; clearTimeout(syncT); setStat('저장 중'); syncT=setTimeout(push,2500); }
@@ -708,7 +763,7 @@ async function push(){
     const res=await fetch(SHEET_URL,{method:'POST',body:JSON.stringify({
       token:TOKEN, week:curWeek, grade:profile.grade, cls:profile.cls||'',
       num:profile.num, name:profile.name,
-      summary:summarize(), raw:{plan:W.plan, run:W.run, daily:W.daily}})});
+      summary:summarize(), grid:{p:packGrid('plan'), r:packGrid('run')}})});
     const j=await res.json();
     if(j&&j.ok) setStat('동기화됨');
     else setStat(j&&j.error==='roster' ? '명단에 없음' : '오류', true);
