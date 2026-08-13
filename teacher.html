@@ -41,6 +41,12 @@
   .wklabel{font-size:13.5px;font-weight:800;white-space:nowrap}
   .wklabel em{font-size:11.5px;font-weight:600;color:var(--ink2);font-style:normal;margin-left:5px}
   .stat{font-size:11.5px;font-weight:700;color:var(--ink2);margin-left:auto}
+  .rf{border:1px solid var(--line2);background:var(--card);border-radius:50%;
+    width:27px;height:27px;cursor:pointer;font-size:13px;color:var(--ink2);line-height:1;
+    display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .rf:active{background:var(--soft)}
+  .rf.spin{animation:sp .8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
   .stat.err{color:var(--c7)}
 
   h2{font-size:16px;font-weight:800;letter-spacing:-.3px;margin-bottom:9px}
@@ -49,14 +55,16 @@
   .sec{margin-bottom:18px}
 
   /* 숫자 */
-  .nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:9px}
+  .nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:9px}
   .n{background:var(--soft);border-radius:10px;padding:10px 12px}
   .n b{display:block;font-size:20px;font-weight:800;letter-spacing:-.6px;font-variant-numeric:tabular-nums}
   .n i{display:block;font-size:11px;font-weight:700;color:var(--ink2);font-style:normal;margin-top:2px}
+  .n u{display:block;font-size:10px;font-weight:600;color:#9C9188;text-decoration:none;
+    margin-top:4px;line-height:1.35}
   .n.warn b{color:var(--c7)}
 
   /* 격자 */
-  .gridbox{display:grid;grid-template-columns:46px 34px 1fr;min-width:940px}
+  .gridbox{display:grid;grid-template-columns:46px 34px 1fr;min-width:940px;padding-right:12px}
   .hl{grid-column:3;position:relative;height:16px;border-bottom:1.5px solid var(--line2)}
   .hl span{position:absolute;bottom:3px;transform:translateX(-50%);font-size:9.5px;font-weight:700;color:var(--ink2)}
   .hl span.f{transform:none;left:0} .hl span.l{transform:none;right:0;left:auto}
@@ -97,6 +105,19 @@
   .save{background:var(--c7);color:#fff;border:none;border-radius:9px;padding:9px 18px;
     font:inherit;font-weight:800;font-size:13px;cursor:pointer}
 
+  table.sum{border-collapse:collapse;width:100%;min-width:600px;table-layout:fixed}
+  table.sum col.it{width:104px}
+  .sum th{font-size:11px;font-weight:700;color:var(--ink2);padding:6px 0;text-align:center;
+    background:var(--soft);border:1px solid var(--line);border-bottom:1.5px solid var(--line2)}
+  .sum td{border:1px solid var(--line);text-align:center;padding:5px 0;height:36px}
+  .sum td.it{text-align:left;padding-left:10px;font-size:12px;font-weight:700;
+    border-right:1.5px solid var(--line2)}
+  .sum td.it .sw{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px}
+  .sum .bg{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums}
+  .sum .sm{font-size:10px;color:var(--ink2);font-weight:700;font-variant-numeric:tabular-nums}
+  .sum .z{color:#CFC4B9}
+  .sum tr.gf td.it .sw{background:var(--gap);
+    background-image:repeating-linear-gradient(45deg,transparent 0 4px,rgba(0,0,0,.09) 4px 5px)}
   .notes{font-size:12.5px;font-weight:600;line-height:1.7;color:var(--ink2)}
   .empty{font-size:12.5px;color:var(--ink2);font-weight:600;padding:18px 0;text-align:center}
 
@@ -132,6 +153,7 @@
     <div class="wklabel" id="wkl"></div>
     <button class="btn" id="tw">이번 주</button>
     <span class="stat" id="stat"></span>
+    <button class="rf" id="refresh" title="새로고침">⟳</button>
   </div>
 
   <div id="body"></div>
@@ -147,7 +169,7 @@
 
 <script>
 const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZDNxPIpfp8DsOm0s4PD3dITCl-6z-DEfL7NNGUvty7IJ6s_GQ/exec';
-const APP_VER   = 'v1';
+const APP_VER   = 'v6';
 const SEMESTER_START = '2026-08-24';
 
 const CATS = [
@@ -170,9 +192,18 @@ const mondayOf=d=>{const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDate()
 const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
 const num=v=>{const n=parseFloat(v); return isNaN(n)?0:n;};
 const fmt=v=>(v%1?v.toFixed(1):String(v));
+/* 시트가 퍼센트를 소수로 바꿔 저장하는 경우가 있어 양쪽 다 받아 줍니다 */
+const pct=v=>{
+  if(v===''||v===null||v===undefined) return '—';
+  if(typeof v==='string' && v.indexOf('%')>=0) return v.trim();
+  const n=parseFloat(v); if(isNaN(n)) return '—';
+  return Math.round(n<=1 ? n*100 : n)+'%';
+};
 
 let PIN='', ROSTER=[], cur=null, rows=[], curWeek=ymd(mondayOf(new Date()));
 const weekNo=w=>Math.round((new Date(w+'T00:00:00')-mondayOf(new Date(SEMESTER_START+'T00:00:00')))/604800000)+1;
+const wkTick=w=>{const n=weekNo(w); if(n>=1) return String(n);
+  const d=new Date(w+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}`;};
 const setStat=(t,e)=>{$('stat').textContent=t; $('stat').classList.toggle('err',!!e);};
 
 /* ── 잠금 ── */
@@ -207,7 +238,7 @@ function paintWho(){
 function paintWeek(){
   const a=new Date(curWeek+'T00:00:00'), b=addD(a,5), n=weekNo(curWeek);
   const now=ymd(mondayOf(new Date()));
-  $('wkl').innerHTML=(n>=1?`${n}주차`:`${a.getFullYear()}년`)
+  $('wkl').innerHTML=(n>=1?`${n}주차`:'학기 전')
     +` <em>${a.getMonth()+1}/${a.getDate()} ~ ${b.getMonth()+1}/${b.getDate()}</em>`
     +(curWeek===now?'<em>· 이번 주</em>':'');
   $('tw').style.display = curWeek===now?'none':'';
@@ -308,7 +339,7 @@ function lineChart(list){
       +`<text x="${L-6}" y="${(y+3.5).toFixed(1)}" font-size="9.5" fill="#8C8178" text-anchor="end">${Math.round(v)}</text>`;
   }
   const lab=list.map((r,i)=>
-    `<text x="${xs(i).toFixed(1)}" y="${H-8}" font-size="9.5" fill="#8C8178" text-anchor="middle">${weekNo(r.week)}</text>`).join('');
+    `<text x="${xs(i).toFixed(1)}" y="${H-8}" font-size="9.5" fill="#8C8178" text-anchor="middle">${wkTick(r.week)}</text>`).join('');
   return `<svg viewBox="0 0 ${W} ${H}">${g}${lab}${path(r=>num(r.study),'#C0533A')}${path(r=>num(r.rest),'#8A8781')}</svg>`
     + `<div class="lg"><span><i style="background:#C0533A"></i>공부</span>
         <span><i style="background:#8A8781"></i>잠 · 휴식</span>
@@ -331,30 +362,69 @@ function fitChart(list){
       height="${(y0-ys(num(v))).toFixed(1)}" fill="${col}" opacity="${op}" rx="2"/>`;
     return box(r.plan,'#C2B4A7',.45)+box(r.fitWeek,'#3F8A78',.45)
          + box(r.fitDay,'#3F8A78',.7)+box(r.fitSlot,'#3F8A78',1)
-         + `<text x="${cx.toFixed(1)}" y="${H-8}" font-size="9.5" fill="#8C8178" text-anchor="middle">${weekNo(r.week)}</text>`;
+         + `<text x="${cx.toFixed(1)}" y="${H-8}" font-size="9.5" fill="#8C8178" text-anchor="middle">${wkTick(r.week)}</text>`;
   }).join('');
   return `<svg viewBox="0 0 ${W} ${H}">${g}${bars}</svg>`
     + `<div class="lg"><span><i style="background:#C2B4A7;opacity:.6"></i>계획</span>
-        <span><i style="background:#3F8A78;opacity:.45"></i>주 총량</span>
-        <span><i style="background:#3F8A78;opacity:.7"></i>일 총량</span>
-        <span><i style="background:#3F8A78"></i>시간대</span></div>`;
+        <span><i style="background:#3F8A78;opacity:.45"></i>그 주 채움</span>
+        <span><i style="background:#3F8A78;opacity:.7"></i>그날 채움</span>
+        <span><i style="background:#3F8A78"></i>딱 맞춤</span></div>`;
 }
 function bandChart(row){
   const P=unpack(row.grid&&row.grid.r);
-  const W=560, rowH=22, gapY=6, H=6*(rowH+gapY);
+  const W=560, X=20, TOP=13, rowH=13, gapY=4;
+  const H=TOP+6*(rowH+gapY);
   let out='';
+  for(let i=0;i<=NH;i+=3){
+    const x=X+(i/NH)*(W-X);
+    out+=`<text x="${x.toFixed(1)}" y="9" font-size="8.5" fill="#8C8178"
+      text-anchor="${i===0?'start':(i===NH?'end':'middle')}">${pad(H0+i)}</text>`;
+    out+=`<line x1="${x.toFixed(1)}" y1="${TOP}" x2="${x.toFixed(1)}" y2="${H}" stroke="#EDE4DA" stroke-width="1"/>`;
+  }
   DAYS.forEach((d,di)=>{
-    const y=di*(rowH+gapY);
-    out+=`<text x="0" y="${y+15}" font-size="10.5" font-weight="700" fill="#7C7169">${KOR[di]}</text>`;
-    out+=`<rect x="22" y="${y}" width="${W-22}" height="${rowH}" fill="#F2EAE2" rx="3"/>`;
+    const y=TOP+di*(rowH+gapY);
+    out+=`<text x="0" y="${y+10}" font-size="9.5" font-weight="700" fill="#7C7169">${KOR[di]}</text>`;
+    out+=`<rect x="${X}" y="${y}" width="${W-X}" height="${rowH}" fill="#F2EAE2" rx="2"/>`;
     runsOf(P,di).forEach(r=>{
       const c=BYS[r.k]; if(!c) return;
-      const x=22+(r.s/NS)*(W-22), w=((r.e-r.s)/NS)*(W-22);
+      const x=X+(r.s/NS)*(W-X), w=((r.e-r.s)/NS)*(W-X);
       out+=`<rect x="${x.toFixed(1)}" y="${y}" width="${w.toFixed(1)}" height="${rowH}" fill="${c.c}" rx="2"/>`;
     });
   });
-  return `<svg viewBox="0 0 ${W} ${H}">${out}</svg>`
+  return `<svg viewBox="0 0 ${W} ${H}" style="max-height:${H*1.6}px">${out}</svg>`
     + `<div class="lg">${CATS.map(c=>`<span><i style="background:${c.c}"></i>${c.n}</span>`).join('')}</div>`;
+}
+
+/* 격자에서 항목별 요일별 시간을 계산합니다 */
+function tallyGrid(g){
+  const out={}; CATS.forEach(c=>out[c.k]=Array(6).fill(0));
+  const fill=Array(6).fill(NS);
+  for(let d=0; d<6; d++){
+    for(let i=0;i<NS;i++){
+      const ch=g[`${d}-${i}`]; if(!ch) continue;
+      const c=BYS[ch]; if(!c) continue;
+      out[c.k][d]++; fill[d]--;
+    }
+  }
+  CATS.forEach(c=>out[c.k]=out[c.k].map(v=>v/2));
+  out.rest=out.rest.map(v=>v+6);            /* 00~06시 자동 */
+  return {out, fill:fill.map(v=>v/2)};
+}
+function splitTable(row){
+  const P=tallyGrid(unpack(row.grid&&row.grid.p));
+  const R=tallyGrid(unpack(row.grid&&row.grid.r));
+  const cell=(p,r)=>`<td><div class="sm${p?'':' z'}">${fmt(p)}</div>
+      <div class="bg${r?'':' z'}">${fmt(r)}</div></td>`;
+  let h='<table class="sum"><colgroup><col class="it">'+'<col>'.repeat(6)
+      +'</colgroup><tr><th></th>'+KOR.map(d=>`<th>${d}</th>`).join('')+'</tr>';
+  CATS.forEach(c=>{
+    h+=`<tr><td class="it"><span class="sw" style="background:${c.c}"></span>${c.n}</td>`
+      + R.out[c.k].map((v,i)=>cell(P.out[c.k][i], v)).join('')+'</tr>';
+  });
+  h+='<tr class="gf"><td class="it"><span class="sw"></span>땜빵</td>'
+    + R.fill.map((v,i)=>cell(P.fill[i], v)).join('')+'</tr>';
+  h+='</table>';
+  return `<div class="scroll">${h}</div>`;
 }
 
 /* ── 본문 ── */
@@ -368,21 +438,33 @@ function render(){
     h+=`<div class="card"><div class="empty">이 주에는 기록이 없습니다</div></div>`;
   }else{
     const gapH=num(row.gap);
-    h+=`<div class="sec"><h2>이 주 숫자</h2><div class="card"><div class="nums">
-      ${n('계획',fmt(num(row.plan))+'h')}
-      ${n('공부',fmt(num(row.study))+'h')}
-      ${n('잠 · 휴식',fmt(num(row.rest))+'h')}
-      ${n('땜빵',fmt(gapH)+'h',gapH>72)}
-      ${n('기록률',row.logged||'—')}
-      ${n('시간대',fmt(num(row.fitSlot))+'h')}
-      ${n('일 총량',fmt(num(row.fitDay))+'h')}
-      ${n('주 총량',fmt(num(row.fitWeek))+'h')}
-      ${n('달성률',row.rate||'—')}
-      ${n('계획표',(row.days||0)+'일')}
-    </div></div></div>`;
+    h+=`<div class="sec"><h2>시간 기록<span>주간 계획 실행표에서</span></h2>
+      <div class="card"><div class="nums">
+        ${n('계획',fmt(num(row.plan))+'h')}
+        ${n('공부',fmt(num(row.study))+'h')}
+        ${n('잠 · 휴식',fmt(num(row.rest))+'h')}
+        ${n('땜빵',fmt(gapH)+'h',gapH>72)}
+        ${n('기록률',pct(row.logged))}
+      </div></div></div>`;
+
+    h+=`<div class="sec"><h2>계획 지킴<span>계획 ${fmt(num(row.plan))}h 중에서 · 왼쪽이 가장 엄격한 기준입니다</span></h2>
+      <div class="card"><div class="nums">
+        ${n('딱 맞춤',fmt(num(row.fitSlot))+'h','','계획한 그 시각에 그대로')}
+        ${n('그날 채움',fmt(num(row.fitDay))+'h','','시간대는 달라도 그날 안에')}
+        ${n('그 주 채움',fmt(num(row.fitWeek))+'h','','요일도 달라도 그 주 안에')}
+      </div></div></div>`;
+
+    h+=`<div class="sec"><h2>일일학습계획표</h2>
+      <div class="card"><div class="nums">
+        ${n('작성',(row.days||0)+'일','','6일 중 며칠 썼나')}
+        ${n('달성률',pct(row.rate),'','적은 할 일 중 체크한 비율')}
+      </div></div></div>`;
 
     h+=`<div class="sec"><h2>주간 계획 실행표<span>읽기 전용 · 계획과 실행이 겹치는 만큼 진해집니다</span></h2>
         <div class="card">${gridHTML(row)}</div></div>`;
+
+    h+=`<div class="sec"><h2>주간 시간 분배<span>위 작은 숫자가 계획, 아래 큰 숫자가 실행입니다</span></h2>
+        <div class="card">${splitTable(row)}</div></div>`;
 
     h+=`<div class="sec"><h2>하루 흐름<span>실행 기준</span></h2>
         <div class="card">${bandChart(row)}</div></div>`;
@@ -408,7 +490,8 @@ function render(){
   $('body').innerHTML=h;
   if($('pms')) $('pms').onclick=savePromise;
 }
-const n=(label,val,warn)=>`<div class="n${warn?' warn':''}"><b>${val}</b><i>${label}</i></div>`;
+const n=(label,val,warn,desc)=>`<div class="n${warn?' warn':''}"><b>${val}</b><i>${label}</i>`
+  +(desc?`<u>${desc}</u>`:'')+`</div>`;
 
 async function savePromise(){
   const text=$('pmt').value.trim();
@@ -428,8 +511,31 @@ async function savePromise(){
   }catch(e){ $('pmh').textContent='연결에 실패했습니다'; }
 }
 
+let verChecking=false, lastCheck=0;
+async function checkUpdate(){
+  if(verChecking || Date.now()-lastCheck < 20000) return;
+  verChecking=true; lastCheck=Date.now();
+  try{
+    const r=await fetch(location.pathname+'?v='+Date.now(), {cache:'no-store'});
+    const t=await r.text();
+    const m=t.match(/const APP_VER   = '([^']+)'/);
+    if(m && m[1] !== APP_VER) location.reload(true);
+  }catch(e){}
+  verChecking=false;
+}
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) checkUpdate(); });
+window.addEventListener('focus', checkUpdate);
+
+$('refresh').onclick=async()=>{
+  const b=$('refresh'); b.classList.add('spin');
+  lastCheck=0; await checkUpdate();
+  if(cur){ await pick(cur); }        /* 시트 기록만 다시 받아옵니다 */
+  b.classList.remove('spin');
+};
+
 $('ver').textContent=APP_VER;
 paintWeek();
+setTimeout(checkUpdate, 1500);
 </script>
 </body>
 </html>
