@@ -103,6 +103,10 @@
   .track.p{height:32px;border-bottom:1px solid var(--line)}
   .track.r{height:40px;border-bottom:1.5px solid var(--line2)}
   .seg{position:absolute;top:0;bottom:0;border-right:1px solid rgba(255,255,255,.5)}
+  .nowline{position:absolute;top:0;bottom:0;width:2px;background:var(--ink);
+    z-index:4;pointer-events:none;opacity:.85}
+  .nowline.head:before{content:'';position:absolute;top:-3px;left:-3px;
+    width:8px;height:8px;border-radius:50%;background:var(--ink)}
   .lab{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;
     font-size:10.5px;font-weight:800;letter-spacing:-.2px;overflow:hidden;white-space:nowrap;
     pointer-events:none;z-index:2;text-shadow:0 1px 2px rgba(0,0,0,.22)}
@@ -133,8 +137,7 @@
   .small{font-size:10.5px;color:var(--ink2);font-weight:700;font-variant-numeric:tabular-nums}
   .zero{color:#CFC4B9}
   .sum tr.tot td{background:var(--soft);border-top:1.5px solid var(--line2);font-weight:800}
-  .sum tr.gapfill td.it .sw{background:var(--gap);
-    background-image:repeating-linear-gradient(45deg,transparent 0 4px,rgba(0,0,0,.09) 4px 5px)}
+  .big.full{color:#3F8A78}
   .foot{font-size:11.5px;color:var(--ink2);font-weight:500;margin-top:10px;line-height:1.75}
   .foot b{color:var(--ink)}
   .foot .fit{color:var(--ink2)}
@@ -170,7 +173,22 @@
     width:22px;height:22px;border-radius:50%;border:1.5px solid var(--line2);color:transparent;
     font-size:13px;font-weight:900;vertical-align:middle}
   .todo tr.done td.g .mark{background:#3F8A78;border-color:#3F8A78;color:#fff}
+  .todo tr.half td.g .mark{background:#fff;border-color:#D2952B;color:#D2952B;font-size:14px}
   .todo tr.done input.tx{color:var(--ink2);text-decoration:line-through}
+  .todo td.p .fix{display:inline-block;font-size:10.5px;font-weight:800;color:#fff;
+    background:var(--c7);border-radius:5px;padding:2px 6px}
+  .todo td.tx-cell{position:relative;display:flex;align-items:center;gap:0}
+  .todo td.tx-cell .tag{flex:0 0 auto;font-size:10px;font-weight:800;color:var(--c7);
+    background:#F6E7E2;border-radius:5px;padding:2px 6px;margin-left:8px}
+  .todo tr.carry td.p{background:#FBF1EE}
+  table.wrate{border-collapse:collapse;width:100%;table-layout:fixed;margin-top:2px}
+  .wrate th{font-size:10.5px;font-weight:700;color:var(--ink2);padding:4px 0;
+    background:var(--soft);border:1px solid var(--line)}
+  .wrate td{font-size:12px;font-weight:800;text-align:center;padding:6px 0;
+    border:1px solid var(--line);font-variant-numeric:tabular-nums}
+  .wrate th.now{background:var(--c7);color:#fff}
+  .wrate td.now{background:#FBF1EE}
+  .wrate .zero{color:#CFC4B9;font-weight:600}
 
   .gauge{display:flex;border:2px solid var(--ink);border-radius:999px;overflow:hidden;height:34px;background:#fff}
   .gauge i{flex:1;border-right:1px solid var(--line2);position:relative}
@@ -284,6 +302,8 @@
           <div class="pct" id="pct">0%<em></em></div>
           <div class="gauge" id="gauge"></div>
           <div class="scale"><span>0</span><span>100</span></div>
+          <div class="mini" style="margin-top:15px">이번 주 달성률</div>
+          <table class="wrate" id="wrate"></table>
           <div class="mini" style="margin-top:15px">한 줄 평가</div>
           <textarea class="evaltx" id="evaltx" placeholder="오늘 하루를 한 줄로"></textarea>
         </div>
@@ -309,7 +329,7 @@ const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZ
 const TOKEN     = 'canaan2026';
 const PIN       = '1225';
 /* 학기 첫 주의 월요일. 여기 기준으로 몇 주차인지 셉니다. */
-const APP_VER = 'v26';
+const APP_VER = 'v33';
 const SEMESTER_START = '2026-08-24';   /* 개학 8/27이 속한 주의 월요일 = 1주차 */
 
 const CATS = [
@@ -320,6 +340,7 @@ const CATS = [
   {k:'play',  n:'노는 시간',   c:'#BE831F', t:'#fff'},
   {k:'etc',   n:'기타',        c:'#7C8A3C', t:'#fff'},
   {k:'study', n:'공부',        c:'#C0533A', t:'#fff'},
+  {k:'fill',  n:'땜빵',        c:'#6B7A8F', t:'#fff'},
 ];
 const AUTO_CATS=['study','acad','etc'];
 const DAYS=['MON','TUE','WED','THU','FRI','SAT'];
@@ -336,12 +357,15 @@ const ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const addD=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x;};
 function mondayOf(d){const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDate()-((x.getDay()+6)%7));return x;}
 
-let profile=null, curWeek=ymd(mondayOf(new Date())), curDay='MON', sel='study';
+let profile=null, curWeek=ymd(mondayOf(new Date())), curDay='MON', sel='';
 let DEV={}, ROSTER=[];
+/* st : 0 못함 · 50 반쯤 · 100 다함
+   src: 'plan' 주간계획표에서 옴 · 'carry' 어제에서 넘어옴 · '' 직접 적음 */
+const blankTodo=()=>({p:'',t:'',st:0,src:'',key:''});
 const blankDay=()=>({action:'',thanks:'',verse:'',eval:'',
-  todos:Array.from({length:NTODO},()=>({p:'',t:'',done:false})),
+  todos:Array.from({length:NTODO},blankTodo),
   tmr:Array(NTMR).fill('')});
-const blankWeek=()=>{const d={};DAYS.forEach(k=>d[k]=blankDay());return {plan:{},run:{},daily:d};};
+const blankWeek=()=>{const d={};DAYS.forEach(k=>d[k]=blankDay());return {plan:{},run:{},daily:d,detail:{}};};
 let W=blankWeek();
 
 /* 저장소 : Claude 안에서는 window.storage, 그 밖에서는 브라우저 저장소를 씁니다 */
@@ -485,8 +509,14 @@ async function goWeek(w){
   catch(e){ try{ r=await store.get('sdl:w:'+w); }catch(e2){} }
   if(r&&r.value){
     try{ const d=JSON.parse(r.value);
-      W.plan=d.plan||{}; W.run=d.run||{};
-      DAYS.forEach(k=>{ if(d.daily&&d.daily[k]) W.daily[k]=Object.assign(blankDay(), d.daily[k]); });
+      W.plan=d.plan||{}; W.run=d.run||{}; W.detail=d.detail||{};
+      DAYS.forEach(k=>{
+        if(!d.daily||!d.daily[k]) return;
+        const src=d.daily[k];
+        if(Array.isArray(src.todos)) src.todos=src.todos.map(t=>Object.assign(blankTodo(),
+          {p:t.p||'', t:t.t||'', st:(t.st!==undefined?t.st:(t.done?100:0)), src:t.src||'', key:t.key||''}));
+        W.daily[k]=Object.assign(blankDay(), src);
+      });
     }catch(e){}
   }
   ready=true;
@@ -503,7 +533,7 @@ document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
   const w=b.dataset.p==='w';
   $('pw').classList.toggle('on',w); $('pd_').classList.toggle('on',!w);
   $('tray').classList.toggle('hide',!w);
-  if(!w) renderDaily(); else redraw();
+  if(!w) renderDaily(); else { redraw(); drawNow(); }
 });
 
 /* ══ 격자 ══ */
@@ -548,16 +578,76 @@ function matchRuns(di){
 }
 const pc=r=>`left:${r.s/NS*100}%;width:${(r.e-r.s)/NS*100}%`;
 function drawTrack(el){
-  const di=+el.dataset.d, segs=runsOf(el.dataset.m,di), fits=matchRuns(di);
+  const di=+el.dataset.d, isPlan=el.dataset.m==='plan';
+  const segs=runsOf(el.dataset.m,di), fits=matchRuns(di);
   let h='';
   segs.forEach(r=>{const c=cat(r.k); h+=`<div class="seg" style="${pc(r)};background:${c.c}${FADE}"></div>`;});
   fits.forEach(r=>{const c=cat(r.k); h+=`<div class="seg" style="${pc(r)};background:${c.c}"></div>`;});
   segs.forEach(r=>{const c=cat(r.k); if(r.e-r.s<2) return;
-    h+=`<div class="lab" style="${pc(r)};color:${c.t}">${c.n}</div>`;});
+    const dt = isPlan ? getDetail(di, r.s) : '';
+    h+=`<div class="lab" style="${pc(r)};color:${c.t}">${esc(dt||c.n)}</div>`;});
   el.innerHTML=h;
 }
 const redrawDay=di=>document.querySelectorAll(`.track[data-d="${di}"]`).forEach(drawTrack);
-const redraw=()=>document.querySelectorAll('.track').forEach(drawTrack);
+
+/* 지금 시각을 오늘 줄에만 세로선으로 표시합니다
+   06시 이전이나 24시 이후, 다른 주를 보고 있을 때는 그리지 않습니다 */
+function drawNow(){
+  document.querySelectorAll('.nowline').forEach(el=>el.remove());
+  const now=new Date();
+  if(ymd(mondayOf(now))!==curWeek) return;
+  const di=(now.getDay()+6)%7;          /* 월=0 */
+  if(di>5) return;                       /* 일요일은 표가 없습니다 */
+  const h=now.getHours()+now.getMinutes()/60;
+  if(h<H0 || h>H0+NH) return;
+  const left=((h-H0)/NH)*100;
+  document.querySelectorAll(`.track[data-d="${di}"]`).forEach((el,i)=>{
+    const d=document.createElement('div');
+    d.className='nowline'+(i===0?' head':'');
+    d.style.left=`calc(${left}% - 1px)`;
+    el.appendChild(d);
+  });
+}
+setInterval(drawNow, 60000);
+/* 화면으로 돌아오거나 창 크기가 바뀌면 바로 맞춥니다 */
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) drawNow(); });
+window.addEventListener('focus', drawNow);
+window.addEventListener('pageshow', drawNow);
+const redraw=()=>{ document.querySelectorAll('.track').forEach(drawTrack); drawNow(); };
+
+/* 계획 띠마다 세부 내용을 적어 둡니다. 열쇠는 '요일-시작칸' */
+function detailKey(d,s0){ return `${d}-${s0}`; }
+function getDetail(d,s0){ return (W.detail||{})[detailKey(d,s0)] || ''; }
+function setDetail(d,s0,v){
+  if(!W.detail) W.detail={};
+  if(v) W.detail[detailKey(d,s0)]=v; else delete W.detail[detailKey(d,s0)];
+}
+let pressT=null, pressed=null;
+function openDetail(el,x){
+  const d=+el.dataset.d, slot=slotAt(el,x);
+  const runs=runsOf(el.dataset.m, d);
+  const hit=runs.find(r=>slot>=r.s && slot<r.e);
+  if(!hit) return;
+  const c=cat(hit.k);
+  const label=`${KOR[d]} ${hhmm(hit.s)}~${hhmm(hit.e)} · ${c.n}`;
+  $('veil').classList.remove('hide');
+  $('modal').innerHTML=`
+    <button class="x" id="dx">✕</button>
+    <h3>무엇을 할 계획인가요</h3>
+    <p>${esc(label)}</p>
+    <div class="mrow"><div class="mfield"><label>내용</label>
+      <input id="dt" placeholder="예) 수학 문제집 5장" value="${esc(getDetail(d,hit.s))}"></div></div>
+    <button class="go" id="dgo">저장</button>
+    <div class="err"></div>`;
+  $('dx').onclick=()=>$('veil').classList.add('hide');
+  $('dt').focus();
+  const go=()=>{
+    setDetail(d,hit.s,$('dt').value.trim());
+    $('veil').classList.add('hide'); redrawDay(d); renderDaily(); save();
+  };
+  $('dgo').onclick=go;
+  $('dt').addEventListener('keydown',e=>{ if(e.key==='Enter') go(); });
+}
 
 let painting=false, mode='set';
 const slotAt=(el,x)=>{const r=el.getBoundingClientRect();
@@ -566,9 +656,16 @@ function apply(el,x){
   if(!el) return;
   const store=W[el.dataset.m], id=`${el.dataset.d}-${slotAt(el,x)}`;
   if(mode==='erase') delete store[id]; else store[id]=sel;
-  redrawDay(el.dataset.d); renderSum(); save();
+  redrawDay(el.dataset.d); drawNow(); renderSum(); save();
 }
 $('grid').addEventListener('pointerdown',e=>{
+  const t=e.target.closest('.track');
+  if(t && t.dataset.m==='plan'){
+    pressed={el:t, x:e.clientX};
+    clearTimeout(pressT);
+    pressT=setTimeout(()=>{ painting=false; openDetail(t, e.clientX); pressed=null; }, 600);
+  }
+  if(!sel) return;                       /* 아무 항목도 고르지 않았으면 칠하지 않습니다 */
   const el=e.target.closest('.track'); if(!el) return;
   const id=`${el.dataset.d}-${slotAt(el,e.clientX)}`;
   mode=(W[el.dataset.m][id]===sel)?'erase':'set';
@@ -579,27 +676,37 @@ $('grid').addEventListener('pointermove',e=>{
   const t=document.elementFromPoint(e.clientX,e.clientY);
   apply(t&&t.closest?t.closest('.track'):null,e.clientX);
 });
-['pointerup','pointercancel'].forEach(v=>$('grid').addEventListener(v,()=>painting=false));
+['pointerup','pointercancel'].forEach(v=>$('grid').addEventListener(v,()=>{
+  painting=false; clearTimeout(pressT); pressed=null;
+}));
+$('grid').addEventListener('pointermove',e=>{
+  if(pressed && Math.abs(e.clientX-pressed.x)>6){ clearTimeout(pressT); pressed=null; }
+});
 
 function buildTray(){
   $('trayIn').innerHTML = CATS.map(c=>
     `<button class="chip${c.k===sel?' sel':''}" data-k="${c.k}">
        <span class="sw" style="background:${c.c}"></span>${c.n}</button>`).join('')
-    + `<div class="trayNote">땜빵은 안 칠한 시간이 자동으로 들어갑니다<br>
+    + `<div class="trayNote">${sel?'선택한 항목을 한 번 더 누르면 선택이 풀립니다'
+        :'항목을 골라야 칠할 수 있습니다'}<br>
          00~06시 ${SLEEP_FIXED}시간은 잠 · 휴식으로 자동 계산</div>`;
-  $('trayIn').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{sel=b.dataset.k;buildTray();});
+  $('trayIn').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{
+    sel = (sel===b.dataset.k) ? '' : b.dataset.k;   /* 같은 항목을 다시 누르면 선택이 풀립니다 */
+    buildTray();
+  });
 }
 
 function tally(m){
   const out={}; CATS.forEach(c=>out[c.k]=Array(6).fill(0));
-  const fill=Array(6).fill(NS);
+  const blank=Array(6).fill(NS);
   Object.entries(W[m]).forEach(([id,k])=>{
     const di=+id.split('-')[0];
-    if(out[k]){out[k][di]++; fill[di]--;}
+    if(out[k]){out[k][di]++; blank[di]--;}
   });
   CATS.forEach(c=>out[c.k]=out[c.k].map(v=>v/2));
   out.rest=out.rest.map(v=>v+SLEEP_FIXED);
-  return {out, fill:fill.map(v=>v/2)};
+  const total=DAYS.map((_,i)=>CATS.reduce((a,c)=>a+out[c.k][i],0));
+  return {out, blank:blank.map(v=>v/2), total};
 }
 function renderSum(){
   const P=tally('plan'), R=tally('run');
@@ -610,20 +717,23 @@ function renderSum(){
   CATS.forEach(c=>{
     h+=`<tr><td class="it"><span class="sw" style="background:${c.c}"></span>${c.n}</td>`
      + R.out[c.k].map((v,i)=>cell(v,P.out[c.k][i])).join('')+'</tr>';});
-  h+='<tr class="gapfill"><td class="it"><span class="sw"></span>땜빵</td>'
-    + R.fill.map((v,i)=>cell(v,P.fill[i])).join('')+'</tr>';
-  h+='<tr class="tot"><td class="it">합계</td>'
-    + DAYS.map(()=>cell(NH+SLEEP_FIXED,NH+SLEEP_FIXED)).join('')+'</tr>';
+  h+='<tr class="tot"><td class="it">채운 시간</td>'
+    + DAYS.map((_,i)=>{
+        const r=R.total[i], p=P.total[i];
+        return `<td><div class="small${p?'':' zero'}">${fmt(p)}/24</div>`
+             + `<div class="big${r>=24?' full':''}${r?'':' zero'}">${fmt(r)}/24</div></td>`;
+      }).join('')+'</tr>';
   $('sum').innerHTML=h;
-  const rf=R.fill.reduce((a,b)=>a+b,0), rs=R.out.study.reduce((a,b)=>a+b,0);
+  const rs=R.out.study.reduce((a,b)=>a+b,0);
+  const full=R.total.filter(v=>v>=24).length;
   const F=fitness();
   $('foot').innerHTML =
-    `이 주 실행 기준 · 공부 <b>${fmt(rs)}시간</b> · 땜빵 <b class="${rf>36?'warn':''}">${fmt(rf)}시간</b>`
+    `이 주 실행 기준 · 공부 <b>${fmt(rs)}시간</b> · 24시간을 다 채운 날 <b>${full}일</b>`
     + (F.plan ? `<br><span class="fit">계획 <b>${fmt(F.plan)}시간</b> 중에서 · `
         + `딱 맞춤 <b>${fmt(F.slot)}</b> · `
         + `그날 채움 <b>${fmt(F.day)}</b> · `
         + `그 주 채움 <b>${fmt(F.week)}</b></span>` : '')
-    + (rf>36?'<br>땜빵이 많다는 건 시간을 못 썼다기보다 기록이 덜 됐다는 뜻입니다.':'');
+    + (full<6?'<br>빈 시간이 있다면 무엇을 했는지 채워 보세요. 저녁 땜빵 시간은 미리 계획해 두면 좋습니다.':'');
 }
 
 /* ══ 일일 ══ */
@@ -655,8 +765,10 @@ function renderTop(){
 }
 function sortTodos(){
   const rows=D().todos;
-  const used=rows.filter(r=>r.p.trim()||r.t.trim());
-  const free=rows.filter(r=>!(r.p.trim()||r.t.trim()));
+  const carry=rows.filter(r=>r.src==='carry' && (r.p.trim()||r.t.trim()));
+  const rest=rows.filter(r=>r.src!=='carry');
+  const used=rest.filter(r=>r.p.trim()||r.t.trim());
+  const free=rest.filter(r=>!(r.p.trim()||r.t.trim()));
   used.sort((a,b)=>{
     const x=parseFloat(a.p), y=parseFloat(b.p);
     const nx=isNaN(x), ny=isNaN(y);
@@ -665,47 +777,127 @@ function sortTodos(){
     if(ny) return -1;
     return x-y;
   });
-  D().todos=used.concat(free);
+  D().todos=carry.concat(used, free).slice(0,NTODO);
+  while(D().todos.length<NTODO) D().todos.push(blankTodo());
 }
+const MARK={0:'', 50:'◐', 100:'✓'};
 function renderTodo(){
   const tb=document.querySelector('#todo tbody');
-  tb.innerHTML=D().todos.map((r,i)=>
-    `<tr class="${r.done?'done':''}">
-       <td class="p"><input class="pr" data-i="${i}" data-f="p" value="${esc(r.p)}"></td>
-       <td><input class="tx" data-i="${i}" data-f="t" value="${esc(r.t)}"></td>
-       <td class="g" data-i="${i}"><span class="mark">✓</span></td></tr>`).join('');
+  tb.innerHTML=D().todos.map((r,i)=>{
+    const carry = r.src==='carry';
+    const cls = (r.st===100?'done':(r.st===50?'half':''))+(carry?' carry':'');
+    const prio = carry
+      ? `<span class="fix">우선</span>`
+      : `<input class="pr" data-i="${i}" data-f="p" value="${esc(r.p)}">`;
+    const tag = carry ? `<span class="tag">남은 것</span>` : '';
+    return `<tr class="${cls}">
+       <td class="p">${prio}</td>
+       <td class="tx-cell">${tag}<input class="tx" data-i="${i}" data-f="t" value="${esc(r.t)}"></td>
+       <td class="g" data-i="${i}"><span class="mark st${r.st}">${MARK[r.st]}</span></td></tr>`;
+  }).join('');
   tb.querySelectorAll('input').forEach(el=>{
-    el.oninput=()=>{ D().todos[+el.dataset.i][el.dataset.f]=el.value; renderGauge(); save(); };
+    el.oninput=()=>{ const r=D().todos[+el.dataset.i];
+      r[el.dataset.f]=el.value; if(el.dataset.f==='t') r.edited=true;
+      renderGauge(); save(); };
     if(el.dataset.f==='p') el.onblur=()=>{ sortTodos(); renderTodo(); save(); };
   });
   tb.querySelectorAll('td.g').forEach(el=>el.onclick=()=>{
-    const r=D().todos[+el.dataset.i]; r.done=!r.done;
-    el.parentElement.classList.toggle('done',r.done); renderGauge(); save();});
+    const r=D().todos[+el.dataset.i];
+    if(!r.t.trim()) return;
+    r.st = r.st===0 ? 100 : (r.st===100 ? 50 : 0);   /* 없음 → 다함 → 반쯤 → 없음 */
+    renderTodo(); renderGauge(); save();
+  });
+}
+function dayRate(d){
+  const t=d.todos.filter(r=>r.t.trim());
+  if(!t.length) return null;
+  const sum=t.reduce((a,r)=>a+r.st,0);
+  return Math.round(sum/t.length);
 }
 function renderGauge(){
-  const t=D().todos.filter(r=>r.t.trim()), done=t.filter(r=>r.done).length;
-  const pct=t.length?Math.round(done/t.length*100):0;
-  $('pct').innerHTML=`${pct}%<em>${t.length?`${done} / ${t.length}개 완료`:'할 일을 적어보세요'}</em>`;
+  const t=D().todos.filter(r=>r.t.trim());
+  const full=t.filter(r=>r.st===100).length, half=t.filter(r=>r.st===50).length;
+  const pct=dayRate(D()) ?? 0;
+  $('pct').innerHTML=`${pct}%<em>${t.length
+    ? `${t.length}개 중 다함 ${full}${half?` · 반쯤 ${half}`:''}`
+    : '할 일을 적어보세요'}</em>`;
   $('gauge').innerHTML=Array.from({length:5},(_,i)=>{
     const f=Math.max(0,Math.min(1,pct/20-i));
     return `<i>${f>0?`<span style="width:${f*100}%"></span>`:''}</i>`;}).join('');
+}
+function renderWeekRate(){
+  const el=$('wrate'); if(!el) return;
+  let h='<tr>'+KOR.map((k,i)=>`<th class="${DAYS[i]===curDay?'now':''}">${k}</th>`).join('')+'</tr><tr>';
+  DAYS.forEach((d,i)=>{
+    const r=dayRate(W.daily[d]);
+    h+=`<td class="${d===curDay?'now':''}">${r===null?'<span class="zero">—</span>':r+'%'}</td>`;
+  });
+  el.innerHTML=h+'</tr>';
 }
 function renderTmr(){
   const ni=(DAYS.indexOf(curDay)+1)%DAYS.length, t=dateOf(ni);
   $('tmrday').textContent=`${KOR[ni]} ${t.getMonth()+1}/${t.getDate()} 계획에서 가져옴`;
   const runs=runsOf('plan',ni,AUTO_CATS);
-  $('autoBox').innerHTML = runs.length
-    ? `<div class="autolist">`+runs.map(r=>{const c=cat(r.k);
+  const items=planItems(ni);
+  $('autoBox').innerHTML = items.length
+    ? `<div class="autolist">`+items.map(it=>{const c=cat(it.cat);
         return `<div class="auto"><span class="sw" style="background:${c.c}"></span>
-          <b>${hhmm(r.s)}~${hhmm(r.e)}</b><span class="nm">${c.n}</span></div>`;}).join('')+`</div>`
+          <b>${it.time}</b><span class="nm">${esc(it.text)}</span></div>`;}).join('')+`</div>`
     : `<div class="noauto">${KOR[ni]}요일 계획에 공부 · 학원 · 기타 일정이 아직 없습니다</div>`;
   $('tmrList').innerHTML=D().tmr.map((v,i)=>
     `<div class="tmr"><span class="dot"></span><input data-i="${i}" value="${esc(v)}"></div>`).join('');
   $('tmrList').querySelectorAll('input').forEach(el=>el.oninput=()=>{
     D().tmr[+el.dataset.i]=el.value; save();});
 }
+/* 그 요일 계획에서 공부 · 학원 · 기타 항목을 뽑아 옵니다 */
+function planItems(di){
+  return runsOf('plan', di, AUTO_CATS).map(r=>({
+    key : `p${di}-${r.s}`,
+    text: getDetail(di, r.s) || cat(r.k).n,
+    time: `${hhmm(r.s)}~${hhmm(r.e)}`,
+    cat : r.k, s:r.s, e:r.e
+  }));
+}
+/* 하루를 열 때 자동으로 채워 넣습니다
+   - 어제 못 끝낸 것 → 맨 위에 '우선'으로
+   - 그날 계획에 적은 공부 · 학원 · 기타 → 그 아래로 */
+function syncDay(dayKey){
+  const di=DAYS.indexOf(dayKey), day=W.daily[dayKey];
+  const have={}; day.todos.forEach(t=>{ if(t.key) have[t.key]=t; });
+
+  /* 1) 어제 미완료 이월 */
+  if(di>0){
+    const prev=W.daily[DAYS[di-1]];
+    prev.todos.filter(t=>t.t.trim() && t.st<100).forEach(t=>{
+      const key='c'+(t.key || (dayKey+'-'+t.t));
+      if(have[key]) return;
+      const slot=day.todos.findIndex(x=>!x.t.trim() && !x.p.trim());
+      if(slot<0) return;
+      day.todos[slot]=Object.assign(blankTodo(),
+        {p:'우선', t:t.t, st:0, src:'carry', key});
+      have[key]=day.todos[slot];
+    });
+  }
+
+  /* 2) 그날 계획에서 */
+  planItems(di).forEach(it=>{
+    if(have[it.key]){ 
+      if(!have[it.key].edited) have[it.key].t=it.text;   /* 손대지 않았으면 최신 내용 반영 */
+      return;
+    }
+    const slot=day.todos.findIndex(x=>!x.t.trim() && !x.p.trim());
+    if(slot<0) return;
+    day.todos[slot]=Object.assign(blankTodo(),
+      {p:'', t:it.text, st:0, src:'plan', key:it.key});
+    have[it.key]=day.todos[slot];
+  });
+
+  sortTodos.call(null);
+}
+
 function renderDaily(){
-  renderTop(); renderTodo(); renderGauge(); renderTmr();
+  syncDay(curDay);
+  renderTop(); renderTodo(); renderGauge(); renderTmr(); renderWeekRate();
   const e=$('evaltx'); e.value=D().eval; e.oninput=()=>{D().eval=e.value; save();};
 }
 
@@ -744,7 +936,7 @@ function fitness(){
 
 /* 격자를 짧은 글자로 압축합니다. 요일마다 36칸, 항목은 한 글자
    교사용 화면에서 이 문자열로 그 주 격자를 그대로 되살립니다 */
-const CODE1 = {pray:'P', school:'S', rest:'R', acad:'A', play:'L', etc:'E', study:'T'};
+const CODE1 = {pray:'P', school:'S', rest:'R', acad:'A', play:'L', etc:'E', study:'T', fill:'F'};
 function packGrid(mode){
   return DAYS.map((_,d)=>{
     let out='';
@@ -761,16 +953,21 @@ function summarize(){
     if(t.length) days++;
     tot+=t.length; done+=t.filter(x=>x.done).length;
   });
-  const gap=R.fill.reduce((a,b)=>a+b,0);
+  const blank=R.blank.reduce((a,b)=>a+b,0);
+  const filled=R.total.reduce((a,b)=>a+b,0);
   return {
     study : R.out.study.reduce((a,b)=>a+b,0),
     rest  : R.out.rest.reduce((a,b)=>a+b,0),
-    gap,
-    logged: Math.round((1 - gap/(NH*6))*100)+'%',   /* 기록률 : 06~24시 구간 기준 */
+    fill  : R.out.fill.reduce((a,b)=>a+b,0),
+    gap   : blank,
+    filled,
+    fullDays: R.total.filter(v=>v>=24).length,
+    logged: Math.round(filled/144*100)+'%',   /* 24시간 중 채운 비율 */
     plan  : F.plan,
     fitSlot: F.slot, fitDay: F.day, fitWeek: F.week,
     rate  : tot?Math.round(done/tot*100)+'%':'',
     days,                                            /* 계획표 작성 일수 */
+    dayRates: DAYS.map(k=>{const r=dayRate(W.daily[k]); return r===null?'':r+'%';}),
     note  : DAYS.map(k=>W.daily[k].eval.trim()).filter(Boolean).join(' / ')
   };
 }
