@@ -186,7 +186,7 @@
 
 <script>
 const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZDNxPIpfp8DsOm0s4PD3dITCl-6z-DEfL7NNGUvty7IJ6s_GQ/exec';
-const APP_VER   = 'v15';
+const APP_VER   = 'v16';
 const SEMESTER_START = '2026-08-24';
 
 const CATS = [
@@ -211,6 +211,7 @@ const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&q
 const num=v=>{const n=parseFloat(v); return isNaN(n)?0:n;};
 const fmt=v=>(v%1?v.toFixed(1):String(v));
 /* 시트가 퍼센트를 소수로 바꿔 저장하는 경우가 있어 양쪽 다 받아 줍니다 */
+function mid(stu){ return stu && +stu.grade>=7; }
 const pct=v=>{
   if(v===''||v===null||v===undefined) return '—';
   if(typeof v==='string' && v.indexOf('%')>=0) return v.trim();
@@ -482,15 +483,16 @@ function render(){
         ${n('그 주 채움',fmt(num(row.fitWeek))+'h','','요일도 달라도 그 주 안에')}
       </div></div></div>`;
 
-    if(num(row.tsCount)>0){
-      const d=num(row.tsDiff);
+    if(mid(cur)){
+      const has=num(row.tsCount)>0, d=num(row.tsDiff);
       h+=`<div class="sec"><h2>시간 감각<span>중등 · 예상한 시간과 실제 걸린 시간</span></h2>
         <div class="card"><div class="nums">
-          ${n('예상 합계',fmt(num(row.tsEst))+'h','','스스로 적은 예상')}
-          ${n('실제 합계',fmt(num(row.tsReal))+'h','','실행 시간 기준')}
-          ${n('한 건당 차이',(d>0?'+':'')+d+'m', Math.abs(d)>15, d>0?'예상보다 더 걸림':(d<0?'예상보다 덜 걸림':'예상과 같음'))}
-          ${n('예상 정확도',pct(row.tsAcc),'','100%에 가까울수록 자기 속도를 압니다')}
-          ${n('비교한 항목',row.tsCount+'개','','예상과 실행이 모두 적힌 것')}
+          ${n('예상 합계',has?fmt(num(row.tsEst))+'h':'—','','스스로 적은 예상')}
+          ${n('실제 합계',has?fmt(num(row.tsReal))+'h':'—','','실행 시간 기준')}
+          ${n('한 건당 차이',has?(d>0?'+':'')+d+'m':'—', has&&Math.abs(d)>15,
+              has?(d>0?'예상보다 더 걸림':(d<0?'예상보다 덜 걸림':'예상과 같음')):'아직 비교할 항목이 없습니다')}
+          ${n('예상 정확도',has?pct(row.tsAcc):'—','','100%에 가까울수록 자기 속도를 압니다')}
+          ${n('비교한 항목',has?row.tsCount+'개':'0개','','예상과 실행이 모두 적힌 것')}
         </div></div></div>`;
     }
 
