@@ -302,7 +302,7 @@
 
   <div class="panel" id="pd_">
     <div class="phead"><h2>일일학습계획표</h2>
-      <span class="ph-sub">목표 달성에 동그라미를 누르면 달성률이 자동으로 채워집니다</span>
+      <span class="ph-sub" id="dsub">○ 다 했다 · △ 반쯤 했다 · → 내일로</span>
       <div class="right"><div class="dayTabs" id="dayTabs"></div></div>
     </div>
     <div class="two">
@@ -347,7 +347,7 @@ const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZ
 const TOKEN     = 'canaan2026';
 const PIN       = '1225';
 /* 학기 첫 주의 월요일. 여기 기준으로 몇 주차인지 셉니다. */
-const APP_VER = 'v42';
+const APP_VER = 'v43';
 const SEMESTER_START = '2026-08-24';   /* 개학 8/27이 속한 주의 월요일 = 1주차 */
 
 const CATS = [
@@ -1033,13 +1033,17 @@ function syncDay(dayKey){
   sortTodos();
 }
 
+const safe=(fn,name)=>{ try{ fn(); }catch(e){ console.error(name, e); } };
 function renderDaily(){
   for(let i=0;i<=DAYS.indexOf(curDay);i++) syncDay(DAYS[i]);
-  $('dsub').textContent = isMid()
+  if($('dsub')) $('dsub').textContent = isMid()
     ? '계획 · 실행 시간은 주간 계획 실행표에서 들어옵니다 · 분 단위로 고칠 수 있습니다'
     : '○ 다 했다 · △ 반쯤 했다 · → 내일로 · △ 와 → 만 다음 날로 넘어갑니다';
-  renderTop(); renderTodo(); renderGauge(); renderTmr(); renderWeekRate();
-  const e=$('evaltx'); e.value=D().eval; e.oninput=()=>{D().eval=e.value; save();};
+  safe(renderTop,'renderTop'); safe(renderTodo,'renderTodo');
+  safe(renderGauge,'renderGauge'); safe(renderTmr,'renderTmr');
+  safe(renderWeekRate,'renderWeekRate');
+  const e=$('evaltx');
+  if(e){ e.value=D().eval; e.oninput=()=>{D().eval=e.value; save();}; }
 }
 
 /* ══ 저장 / 연동 ══ */
