@@ -121,11 +121,12 @@
   .sum .z{color:#CFC4B9}
   .sum tr.gf td.it .sw{background:var(--gap);
     background-image:repeating-linear-gradient(45deg,transparent 0 4px,rgba(0,0,0,.09) 4px 5px)}
-  .log .lrow{display:flex;gap:12px;margin-bottom:10px}
-  .log .lb{flex:0 0 116px;font-size:12px;font-weight:800;color:#fff;background:var(--c7);
-    border-radius:8px;display:flex;align-items:center;justify-content:center;text-align:center;
-    padding:8px 6px;line-height:1.4;min-height:52px}
-  .log .lv{flex:1;min-width:0}
+  .log .lrow{display:flex;gap:12px;margin-bottom:10px;align-items:stretch}
+  .log .lb{flex:0 0 116px;max-width:116px;font-size:12px;font-weight:800;color:#fff;
+    background:var(--c7);border-radius:8px;display:flex;align-items:center;justify-content:center;
+    text-align:center;padding:8px 6px;line-height:1.4;word-break:keep-all;overflow:hidden}
+  .log .lb.empty{background:transparent}
+  .log .lv{flex:1 1 auto;min-width:0}
   .log .lh{display:block;font-size:10.5px;font-weight:700;color:var(--ink2);margin-bottom:3px}
   .log textarea{width:100%;height:52px;border:1px solid var(--line);border-radius:9px;
     padding:8px 11px;font-weight:600;resize:vertical;line-height:1.5;font:inherit;color:var(--ink)}
@@ -187,7 +188,7 @@
 
 <script>
 const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZDNxPIpfp8DsOm0s4PD3dITCl-6z-DEfL7NNGUvty7IJ6s_GQ/exec';
-const APP_VER   = 'v9';
+const APP_VER   = 'v10';
 const SEMESTER_START = '2026-08-24';
 
 const CATS = [
@@ -536,7 +537,7 @@ function render(){
 }
 const lf=(label,key,val,hint)=>`
   <div class="lrow">
-    <div class="lb">${label}</div>
+    <div class="lb${label?'':' empty'}">${label}</div>
     <div class="lv">${hint?`<span class="lh">${hint}</span>`:''}
       <textarea data-k="${key}">${esc(val||'')}</textarea></div>
   </div>`;

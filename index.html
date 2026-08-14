@@ -334,7 +334,7 @@ const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZ
 const TOKEN     = 'canaan2026';
 const PIN       = '1225';
 /* 학기 첫 주의 월요일. 여기 기준으로 몇 주차인지 셉니다. */
-const APP_VER = 'v38';
+const APP_VER = 'v39';
 const SEMESTER_START = '2026-08-24';   /* 개학 8/27이 속한 주의 월요일 = 1주차 */
 
 const CATS = [
@@ -660,7 +660,7 @@ function openDetail(el,x){
     setDetail(d,hit.s,$('dt').value.trim());
     $('veil').classList.add('hide');
     DAYS.forEach(k=>syncDay(k));       /* 이어지는 날들까지 함께 맞춥니다 */
-    redrawDay(d); renderDaily(); save();
+    redraw(); renderSum(); renderDaily(); save();
   };
   $('dgo').onclick=go;
   $('dt').addEventListener('keydown',e=>{ if(e.key==='Enter') go(); });
@@ -678,10 +678,12 @@ function apply(el,x){
 }
 $('grid').addEventListener('pointerdown',e=>{
   const t=e.target.closest('.track');
-  if(t && t.dataset.m==='plan'){
+  /* 항목을 고르지 않았을 때만 길게 눌러 세부 내용을 적습니다
+     (고른 상태에서는 칠하기와 겹쳐 오작동합니다) */
+  if(!sel && t && t.dataset.m==='plan'){
     pressed={el:t, x:e.clientX};
     clearTimeout(pressT);
-    pressT=setTimeout(()=>{ painting=false; openDetail(t, e.clientX); pressed=null; }, 600);
+    pressT=setTimeout(()=>{ openDetail(t, e.clientX); pressed=null; }, 500);
   }
   if(!sel) return;                       /* 아무 항목도 고르지 않았으면 칠하지 않습니다 */
   const el=e.target.closest('.track'); if(!el) return;
@@ -706,7 +708,7 @@ function buildTray(){
     `<button class="chip${c.k===sel?' sel':''}" data-k="${c.k}">
        <span class="sw" style="background:${c.c}"></span>${c.n}</button>`).join('')
     + `<div class="trayNote">${sel?'선택한 항목을 한 번 더 누르면 선택이 풀립니다'
-        :'항목을 골라야 칠할 수 있습니다'}<br>
+        :'항목을 골라야 칠할 수 있습니다 · 지금은 계획 띠를 길게 눌러 내용을 적을 수 있습니다'}<br>
          00~06시 ${SLEEP_FIXED}시간은 잠 · 휴식으로 자동 계산</div>`;
   $('trayIn').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{
     sel = (sel===b.dataset.k) ? '' : b.dataset.k;   /* 같은 항목을 다시 누르면 선택이 풀립니다 */
@@ -890,9 +892,9 @@ function planItems(di){
 function syncDay(dayKey){
   const di=DAYS.indexOf(dayKey), day=W.daily[dayKey];
 
-  /* 0) 자동으로 들어왔던 빈 줄은 정리합니다 */
+  /* 0) 자동으로 들어왔던 빈 줄과, 열쇠 없이 남은 옛 자동 항목은 정리합니다 */
   day.todos.forEach((t,i)=>{
-    if(t.src && !t.t.trim()) day.todos[i]=blankTodo();
+    if(t.src && (!t.t.trim() || !t.key)) day.todos[i]=blankTodo();
   });
 
   const byKey={};
@@ -1051,7 +1053,11 @@ async function pullMeta(){
   }catch(e){}
 }
 async function save(){ await saveWeek(); saveProfile(); queueSync(); }
-$('reset').onclick=()=>{ W.plan={}; W.run={}; redraw(); renderSum(); save(); };
+$('reset').onclick=()=>{
+  W.plan={}; W.run={}; W.detail={};
+  DAYS.forEach(k=>W.daily[k]=blankDay());
+  redraw(); drawNow(); renderSum(); buildDayTabs(); renderDaily(); save();
+};
 
 /* ══ 최신 버전 확인 ══
    앱을 열 때(그리고 다시 앞으로 돌아올 때) 서버의 파일을 살짝 확인해서
