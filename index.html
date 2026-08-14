@@ -316,8 +316,10 @@
       <div>
         <div class="cardbox"><div class="fields" id="topFields"></div></div>
         <div class="cardbox" style="margin-top:14px">
-          <h3>오늘 할 일</h3>
-          <div class="ph-sub" id="dsub" style="margin:-2px 0 10px"></div>
+          <div class="rowhead" style="margin-bottom:10px;align-items:baseline;justify-content:flex-start;flex-wrap:wrap;gap:9px">
+            <h3 style="margin-bottom:0">오늘 할 일</h3>
+            <span class="ph-sub" id="dsub"></span>
+          </div>
           <table class="todo" id="todo"><thead></thead><tbody></tbody></table>
         </div>
       </div>
@@ -355,7 +357,7 @@ const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZ
 const TOKEN     = 'canaan2026';
 const PIN       = '1225';
 /* 학기 첫 주의 월요일. 여기 기준으로 몇 주차인지 셉니다. */
-const APP_VER = 'v46';
+const APP_VER = 'v47';
 const SEMESTER_START = '2026-08-24';   /* 개학 8/27이 속한 주의 월요일 = 1주차 */
 
 const CATS = [
