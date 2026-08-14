@@ -162,9 +162,9 @@
 
   table.todo{border-collapse:collapse;width:100%;table-layout:fixed;margin-top:4px}
   table.todo th:first-child{width:52px}
-  table.todo.mid th:nth-child(1){width:104px}
-  table.todo.mid th:nth-child(3){width:60px}
-  table.todo.mid th:nth-child(4){width:132px}
+  table.todo.mid th:nth-child(2){width:104px}
+  table.todo.mid th:nth-child(4){width:60px}
+  table.todo.mid th:nth-child(5){width:132px}
   table.todo th:last-child{width:104px}
   .todo th{font-size:11px;font-weight:700;color:var(--ink2);background:var(--soft);
     border:1px solid var(--line);border-bottom:1.5px solid var(--line2);padding:6px 0;line-height:1.25}
@@ -347,7 +347,7 @@ const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZ
 const TOKEN     = 'canaan2026';
 const PIN       = '1225';
 /* 학기 첫 주의 월요일. 여기 기준으로 몇 주차인지 셉니다. */
-const APP_VER = 'v43';
+const APP_VER = 'v44';
 const SEMESTER_START = '2026-08-24';   /* 개학 8/27이 속한 주의 월요일 = 1주차 */
 
 const CATS = [
@@ -830,7 +830,8 @@ const STATES=[
 function renderTodo(){
   const mid=isMid(), tb=document.querySelector('#todo tbody');
   document.querySelector('#todo thead').innerHTML = mid
-    ? `<tr><th>계획 시간</th><th>Study Plan</th><th>예상<br>시간</th><th>실행 시간</th><th>실행 여부</th></tr>`
+    ? `<tr><th>우선<br>순위</th><th>계획 시간</th><th>Study Plan</th><th>예상<br>시간</th>`
+      + `<th>실행 시간</th><th>목표 달성</th></tr>`
     : `<tr><th>우선<br>순위</th><th>구체적인 학습 내용</th><th>목표 달성</th></tr>`;
   document.querySelector('#todo').className = 'todo'+(mid?' mid':'');
 
@@ -843,6 +844,8 @@ function renderTodo(){
     const cls = (r.st===100?'done':(r.st===50?'half':(r.st===-1?'push':'')))+(carry?' carry':'');
     const tag = carry ? `<span class="tag">남은 것</span>` : '';
     const txt = `<td class="tx-cell">${tag}<input class="tx" data-i="${i}" data-f="t" value="${esc(r.t)}"></td>`;
+    const prio = carry ? `<span class="fix">우선</span>`
+      : `<input class="pr" data-i="${i}" data-f="p" value="${esc(r.p)}">`;
 
     if(mid){
       const g=gapMin(r), e=estMin(r);
@@ -850,14 +853,13 @@ function renderTodo(){
       const badge = diff===null ? ''
         : `<span class="dif ${diff>0?'over':(diff<0?'under':'same')}">${diff>0?'+':''}${diff}m</span>`;
       return `<tr class="${cls}">
+        <td class="p">${prio}</td>
         <td class="tm">${tf(i,'ps')}<i>~</i>${tf(i,'pe')}</td>
         ${txt}
         <td class="es"><input data-i="${i}" data-f="est" value="${esc(r.est)}" placeholder="30m"></td>
         <td class="tm">${tf(i,'rs')}<i>~</i>${tf(i,'re')}${badge}</td>
         <td class="g">${btns(i)}</td></tr>`;
     }
-    const prio = carry ? `<span class="fix">우선</span>`
-      : `<input class="pr" data-i="${i}" data-f="p" value="${esc(r.p)}">`;
     return `<tr class="${cls}"><td class="p">${prio}</td>${txt}
         <td class="g">${btns(i)}</td></tr>`;
   }).join('');
