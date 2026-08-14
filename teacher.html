@@ -121,13 +121,11 @@
   .sum .z{color:#CFC4B9}
   .sum tr.gf td.it .sw{background:var(--gap);
     background-image:repeating-linear-gradient(45deg,transparent 0 4px,rgba(0,0,0,.09) 4px 5px)}
-  .log .lrow{display:flex;gap:12px;margin-bottom:10px;align-items:stretch}
-  .log .lb{flex:0 0 116px;max-width:116px;font-size:12px;font-weight:800;color:#fff;
-    background:var(--c7);border-radius:8px;display:flex;align-items:center;justify-content:center;
-    text-align:center;padding:8px 6px;line-height:1.4;word-break:keep-all;overflow:hidden}
-  .log .lb.empty{background:transparent}
-  .log .lv{flex:1 1 auto;min-width:0}
-  .log .lh{display:block;font-size:10.5px;font-weight:700;color:var(--ink2);margin-bottom:3px}
+  .log .lrow{margin-bottom:13px}
+  .log .ltag{display:inline-block;position:static;font-size:11.5px;font-weight:800;color:#fff;
+    background:var(--c7);border-radius:6px;padding:3px 9px;margin-bottom:5px;line-height:1.4}
+  .log .lh{display:inline-block;font-size:11px;font-weight:700;color:var(--ink2);
+    margin-bottom:5px;margin-left:7px}
   .log textarea{width:100%;height:52px;border:1px solid var(--line);border-radius:9px;
     padding:8px 11px;font-weight:600;resize:vertical;line-height:1.5;font:inherit;color:var(--ink)}
   .log textarea:focus{border-color:var(--c7);outline:none}
@@ -188,7 +186,7 @@
 
 <script>
 const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZDNxPIpfp8DsOm0s4PD3dITCl-6z-DEfL7NNGUvty7IJ6s_GQ/exec';
-const APP_VER   = 'v10';
+const APP_VER   = 'v13';
 const SEMESTER_START = '2026-08-24';
 
 const CATS = [
@@ -522,7 +520,7 @@ function render(){
         ${lf('','spent',L.spent,'소요시간 점검')}
         ${lf('실력의 정직','subject',L.subject,'어려운 과목 진행상황')}
         ${lf('','care',L.care,'관리 (체력, 심리)')}
-        ${lf('상담 후 변화 및<br>도움 주어야 할 것','after',L.after,'학생 앱에 이번 주 내내 표시됩니다')}
+        ${lf('상담 후 변화 및 도움 주어야 할 것','after',L.after,'학생 앱에 이번 주 내내 표시됩니다')}
         <div class="pmrow"><button class="save" id="pms">저장</button>
           <span class="hint" id="pmh">${row&&row.logAt?'마지막 기록 '+esc(row.logAt):''}</span>
           <button class="btn" id="prt" style="margin-left:auto">이 회차 인쇄 · PDF</button>
@@ -537,9 +535,8 @@ function render(){
 }
 const lf=(label,key,val,hint)=>`
   <div class="lrow">
-    <div class="lb${label?'':' empty'}">${label}</div>
-    <div class="lv">${hint?`<span class="lh">${hint}</span>`:''}
-      <textarea data-k="${key}">${esc(val||'')}</textarea></div>
+    <div>${label?`<span class="ltag">${label}</span>`:''}${hint?`<span class="lh">${hint}</span>`:''}</div>
+    <textarea data-k="${key}">${esc(val||'')}</textarea>
   </div>`;
 const n=(label,val,warn,desc)=>`<div class="n${warn?' warn':''}"><b>${val}</b><i>${label}</i>`
   +(desc?`<u>${desc}</u>`:'')+`</div>`;
