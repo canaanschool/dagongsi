@@ -161,7 +161,11 @@
   .tagv{font-size:10px;font-weight:800;color:#fff;background:#7C5A86;border-radius:5px;padding:2px 6px;flex:0 0 auto}
 
   table.todo{border-collapse:collapse;width:100%;table-layout:fixed;margin-top:4px}
-  table.todo col.p{width:52px} table.todo col.g{width:104px}
+  table.todo th:first-child{width:52px}
+  table.todo.mid th:nth-child(1){width:104px}
+  table.todo.mid th:nth-child(3){width:60px}
+  table.todo.mid th:nth-child(4){width:132px}
+  table.todo th:last-child{width:104px}
   .todo th{font-size:11px;font-weight:700;color:var(--ink2);background:var(--soft);
     border:1px solid var(--line);border-bottom:1.5px solid var(--line2);padding:6px 0;line-height:1.25}
   .todo td{border:1px solid var(--line);height:38px;padding:0}
@@ -179,6 +183,19 @@
   .todo .mk.ps.on{background:#5B7B9A;border-color:#5B7B9A;color:#fff}
   .todo tr.done input.tx{color:var(--ink2);text-decoration:line-through}
   .todo tr.push input.tx{color:var(--ink2)}
+  .todo td.tm{text-align:center;white-space:nowrap;padding:0 2px}
+  .todo td.tm input{width:38px;height:34px;text-align:center;font-weight:700;font-size:12px;
+    border:none;background:transparent;font-family:inherit;color:var(--ink)}
+  .todo td.tm input:focus{background:#FBF1EE;border-radius:5px}
+  .todo td.tm i{font-style:normal;font-size:10px;color:var(--ink2);margin:0 1px}
+  .todo td.es{text-align:center;background:#FDFAF7;padding:0 2px}
+  .todo td.es input{width:100%;height:34px;text-align:center;font-weight:700;font-size:12px;
+    border:none;background:transparent;font-family:inherit;color:var(--ink)}
+  .todo .dif{display:inline-block;font-size:9.5px;font-weight:800;border-radius:4px;
+    padding:1px 4px;margin-left:3px;vertical-align:1px}
+  .todo .dif.over{background:#F6E7E2;color:var(--c7)}
+  .todo .dif.under{background:#E4EFE9;color:#3F8A78}
+  .todo .dif.same{background:var(--soft);color:var(--ink2)}
   .todo td.p{text-align:center;vertical-align:middle}
   .todo td.p .fix{display:inline-block;font-size:10.5px;font-weight:800;color:#fff;
     background:var(--c7);border-radius:5px;padding:2px 6px}
@@ -293,11 +310,7 @@
         <div class="cardbox"><div class="fields" id="topFields"></div></div>
         <div class="cardbox" style="margin-top:14px">
           <h3>오늘 할 일</h3>
-          <table class="todo" id="todo">
-            <colgroup><col class="p"><col><col class="g"></colgroup>
-            <thead><tr><th>우선<br>순위</th><th>구체적인 학습 내용</th><th>목표 달성</th></tr></thead>
-            <tbody></tbody>
-          </table>
+          <table class="todo" id="todo"><thead></thead><tbody></tbody></table>
         </div>
       </div>
       <div>
@@ -334,7 +347,7 @@ const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZ
 const TOKEN     = 'canaan2026';
 const PIN       = '1225';
 /* 학기 첫 주의 월요일. 여기 기준으로 몇 주차인지 셉니다. */
-const APP_VER = 'v39';
+const APP_VER = 'v42';
 const SEMESTER_START = '2026-08-24';   /* 개학 8/27이 속한 주의 월요일 = 1주차 */
 
 const CATS = [
@@ -363,10 +376,16 @@ const addD=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x;};
 function mondayOf(d){const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDate()-((x.getDay()+6)%7));return x;}
 
 let profile=null, curWeek=ymd(mondayOf(new Date())), curDay='MON', sel='';
+/* 중등(7학년 이상)이면 일일학습계획표가 시간 중심 양식으로 바뀝니다
+   주소 뒤에 ?m 또는 ?e 를 붙이면 강제로 정할 수 있습니다 */
+const FORCE = location.search.indexOf('m')>=0 ? 'm'
+            : (location.search.indexOf('e')>=0 ? 'e' : '');
+const isMid = () => FORCE ? FORCE==='m' : (profile && +profile.grade >= 7);
 let DEV={}, ROSTER=[];
 /* st : 0 못함 · 50 반쯤 · 100 다함
    src: 'plan' 주간계획표에서 옴 · 'carry' 어제에서 넘어옴 · '' 직접 적음 */
-const blankTodo=()=>({p:'',t:'',st:0,src:'',key:'',edited:false});
+const blankTodo=()=>({p:'',t:'',st:0,src:'',key:'',edited:false,
+  ps:'',pe:'',est:'',rs:'',re:'',tedited:false});
 const blankDay=()=>({action:'',thanks:'',verse:'',eval:'',
   todos:Array.from({length:NTODO},blankTodo),
   tmr:Array(NTMR).fill('')});
@@ -520,7 +539,9 @@ async function goWeek(w){
         const src=d.daily[k];
         if(Array.isArray(src.todos)) src.todos=src.todos.map(t=>Object.assign(blankTodo(),
           {p:t.p||'', t:t.t||'', st:(t.st!==undefined?t.st:(t.done?100:0)),
-           src:t.src||'', key:t.key||'', edited:!!t.edited}));
+           src:t.src||'', key:t.key||'', edited:!!t.edited,
+           ps:t.ps||'', pe:t.pe||'', est:t.est||'', rs:t.rs||'', re:t.re||'',
+           tedited:!!t.tedited}));
         W.daily[k]=Object.assign(blankDay(), src);
       });
     }catch(e){}
@@ -807,26 +828,49 @@ const STATES=[
   {v:-1,  m:'→', n:'내일로'},
 ];
 function renderTodo(){
-  const tb=document.querySelector('#todo tbody');
+  const mid=isMid(), tb=document.querySelector('#todo tbody');
+  document.querySelector('#todo thead').innerHTML = mid
+    ? `<tr><th>계획 시간</th><th>Study Plan</th><th>예상<br>시간</th><th>실행 시간</th><th>실행 여부</th></tr>`
+    : `<tr><th>우선<br>순위</th><th>구체적인 학습 내용</th><th>목표 달성</th></tr>`;
+  document.querySelector('#todo').className = 'todo'+(mid?' mid':'');
+
+  const btns=i=>STATES.map(o=>
+    `<button class="mk ${o.v===100?'ok':(o.v===50?'hf':'ps')}${D().todos[i].st===o.v?' on':''}"
+       data-i="${i}" data-v="${o.v}" title="${o.n}">${o.m}</button>`).join('');
+
   tb.innerHTML=D().todos.map((r,i)=>{
     const carry = r.src==='carry';
     const cls = (r.st===100?'done':(r.st===50?'half':(r.st===-1?'push':'')))+(carry?' carry':'');
-    const prio = carry
-      ? `<span class="fix">우선</span>`
-      : `<input class="pr" data-i="${i}" data-f="p" value="${esc(r.p)}">`;
     const tag = carry ? `<span class="tag">남은 것</span>` : '';
-    return `<tr class="${cls}">
-       <td class="p">${prio}</td>
-       <td class="tx-cell">${tag}<input class="tx" data-i="${i}" data-f="t" value="${esc(r.t)}"></td>
-       <td class="g">${STATES.map(o=>
-          `<button class="mk ${o.v===100?'ok':(o.v===50?'hf':'ps')}${r.st===o.v?' on':''}"
-             data-i="${i}" data-v="${o.v}" title="${o.n}">${o.m}</button>`).join('')}</td></tr>`;
+    const txt = `<td class="tx-cell">${tag}<input class="tx" data-i="${i}" data-f="t" value="${esc(r.t)}"></td>`;
+
+    if(mid){
+      const g=gapMin(r), e=estMin(r);
+      const diff=(g!==null&&e)? (g-e) : null;
+      const badge = diff===null ? ''
+        : `<span class="dif ${diff>0?'over':(diff<0?'under':'same')}">${diff>0?'+':''}${diff}m</span>`;
+      return `<tr class="${cls}">
+        <td class="tm">${tf(i,'ps')}<i>~</i>${tf(i,'pe')}</td>
+        ${txt}
+        <td class="es"><input data-i="${i}" data-f="est" value="${esc(r.est)}" placeholder="30m"></td>
+        <td class="tm">${tf(i,'rs')}<i>~</i>${tf(i,'re')}${badge}</td>
+        <td class="g">${btns(i)}</td></tr>`;
+    }
+    const prio = carry ? `<span class="fix">우선</span>`
+      : `<input class="pr" data-i="${i}" data-f="p" value="${esc(r.p)}">`;
+    return `<tr class="${cls}"><td class="p">${prio}</td>${txt}
+        <td class="g">${btns(i)}</td></tr>`;
   }).join('');
+
   tb.querySelectorAll('input').forEach(el=>{
-    el.oninput=()=>{ const r=D().todos[+el.dataset.i];
-      r[el.dataset.f]=el.value; if(el.dataset.f==='t') r.edited=true;
+    el.oninput=()=>{ const r=D().todos[+el.dataset.i], f=el.dataset.f;
+      r[f]=el.value;
+      if(f==='t') r.edited=true;
+      if(['ps','pe','est','rs','re'].includes(f)) r.tedited=true;
       renderGauge(); save(); };
     if(el.dataset.f==='p') el.onblur=()=>{ sortTodos(); renderTodo(); save(); };
+    if(['ps','pe','rs','re','est'].includes(el.dataset.f))
+      el.onblur=()=>{ renderTodo(); save(); };
   });
   tb.querySelectorAll('button.mk').forEach(el=>el.onclick=()=>{
     const r=D().todos[+el.dataset.i], v=+el.dataset.v;
@@ -835,6 +879,9 @@ function renderTodo(){
     renderTodo(); renderGauge(); save();
   });
 }
+const tf=(i,f)=>`<input data-i="${i}" data-f="${f}" value="${esc(D().todos[i][f])}"
+  placeholder="--:--" inputmode="numeric" maxlength="5">`;
+
 function dayRate(d){
   const t=d.todos.filter(r=>r.t.trim());
   if(!t.length) return null;
@@ -883,8 +930,45 @@ function planItems(di){
     key : `p${di}-${r.s}`,
     text: getDetail(di, r.s) || cat(r.k).n,
     time: `${hhmm(r.s)}~${hhmm(r.e)}`,
+    ps:hhmm(r.s), pe:hhmm(r.e), est:minLabel((r.e-r.s)*30),
     cat : r.k, s:r.s, e:r.e
   }));
+}
+const minLabel=m=>{
+  if(!m) return '';
+  const h=Math.floor(m/60), n=m%60;
+  return (h?`${h}h`:'')+(n?`${n}m`:'');
+};
+/* 07:10 같은 글자를 분으로, 분을 다시 글자로 */
+function toMin(t){
+  const m=String(t||'').match(/^(\d{1,2})\s*[:.]?\s*(\d{2})$/);
+  if(!m) return null;
+  const h=+m[1], n=+m[2];
+  if(h>24||n>59) return null;
+  return h*60+n;
+}
+function gapMin(r){
+  const a=toMin(r.rs), b=toMin(r.re);
+  if(a===null||b===null) return null;
+  return (b>=a? b-a : b+1440-a);
+}
+function estMin(r){
+  const m=String(r.est||'').match(/(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?/);
+  if(!m) return null;
+  const v=(+(m[1]||0))*60 + (+(m[2]||0));
+  return v||null;
+}
+/* 그 요일 실행에서 같은 항목의 시각을 찾아 옵니다 */
+function runTimeFor(di, cat0, ps){
+  const runs=runsOf('run', di, [cat0]);
+  if(!runs.length) return null;
+  const p=toMin(ps);
+  let best=runs[0], bd=1e9;
+  runs.forEach(r=>{
+    const d=Math.abs(toMin(hhmm(r.s))-p);
+    if(d<bd){ bd=d; best=r; }
+  });
+  return {rs:hhmm(best.s), re:hhmm(best.e)};
 }
 /* 하루를 열 때 자동으로 채워 넣습니다
    - 어제 못 끝낸 것 → 맨 위에 '우선'으로
@@ -927,11 +1011,18 @@ function syncDay(dayKey){
   const planKeys={};
   planItems(di).forEach(it=>{
     planKeys[it.key]=true;
+    const rt=runTimeFor(di, it.cat, it.ps) || {rs:'', re:''};
     const has=byKey[it.key];
-    if(has){ if(!has.edited) has.t=it.text; return; }
+    if(has){
+      if(!has.edited) has.t=it.text;
+      if(!has.tedited){ has.ps=it.ps; has.pe=it.pe; has.est=it.est;
+                        has.rs=rt.rs; has.re=rt.re; }
+      return;
+    }
     const slot=free(); if(slot<0) return;
     day.todos[slot]=Object.assign(blankTodo(),
-      {p:'', t:it.text, st:0, src:'plan', key:it.key});
+      {p:'', t:it.text, st:0, src:'plan', key:it.key,
+       ps:it.ps, pe:it.pe, est:it.est, rs:rt.rs, re:rt.re});
     byKey[it.key]=day.todos[slot];
   });
   /* 계획에서 지워진 것은 오늘에서도 사라집니다 (손대지 않은 것만) */
@@ -944,6 +1035,9 @@ function syncDay(dayKey){
 
 function renderDaily(){
   for(let i=0;i<=DAYS.indexOf(curDay);i++) syncDay(DAYS[i]);
+  $('dsub').textContent = isMid()
+    ? '계획 · 실행 시간은 주간 계획 실행표에서 들어옵니다 · 분 단위로 고칠 수 있습니다'
+    : '○ 다 했다 · △ 반쯤 했다 · → 내일로 · △ 와 → 만 다음 날로 넘어갑니다';
   renderTop(); renderTodo(); renderGauge(); renderTmr(); renderWeekRate();
   const e=$('evaltx'); e.value=D().eval; e.oninput=()=>{D().eval=e.value; save();};
 }
@@ -992,6 +1086,26 @@ function packGrid(mode){
   }).join('|');
 }
 
+/* 중등 : 예상 시간과 실제 걸린 시간의 차이 */
+function timeSense(){
+  let est=0, real=0, cnt=0, over=0, under=0, diffAbs=0;
+  DAYS.forEach(k=>W.daily[k].todos.forEach(r=>{
+    if(!r.t.trim()) return;
+    const g=gapMin(r), e=estMin(r);
+    if(g===null || !e) return;
+    est+=e; real+=g; cnt++; diffAbs+=Math.abs(g-e);
+    if(g>e) over++; else if(g<e) under++;
+  }));
+  if(!cnt) return {tsCount:0, tsEst:'', tsReal:'', tsDiff:'', tsAcc:''};
+  const r1=v=>Math.round(v/6)/10;          /* 분 → 시간, 소수 한 자리 */
+  return {
+    tsCount: cnt,
+    tsEst : r1(est), tsReal: r1(real),
+    tsDiff: Math.round((real-est)/cnt),    /* 한 건당 평균 차이(분) */
+    tsAcc : Math.round((1 - diffAbs/Math.max(est,1))*100)+'%'
+  };
+}
+
 function summarize(){
   const R=tally('run'), F=fitness();
   let done=0,tot=0,days=0;
@@ -1015,6 +1129,8 @@ function summarize(){
     rate  : tot?Math.round(done/tot*100)+'%':'',
     days,                                            /* 계획표 작성 일수 */
     dayRates: DAYS.map(k=>{const r=dayRate(W.daily[k]); return r===null?'':r+'%';}),
+    mid: isMid(),
+    ...timeSense(),
     note  : DAYS.map(k=>W.daily[k].eval.trim()).filter(Boolean).join(' / ')
   };
 }

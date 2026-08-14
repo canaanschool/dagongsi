@@ -186,7 +186,7 @@
 
 <script>
 const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZDNxPIpfp8DsOm0s4PD3dITCl-6z-DEfL7NNGUvty7IJ6s_GQ/exec';
-const APP_VER   = 'v13';
+const APP_VER   = 'v15';
 const SEMESTER_START = '2026-08-24';
 
 const CATS = [
@@ -482,6 +482,18 @@ function render(){
         ${n('그 주 채움',fmt(num(row.fitWeek))+'h','','요일도 달라도 그 주 안에')}
       </div></div></div>`;
 
+    if(num(row.tsCount)>0){
+      const d=num(row.tsDiff);
+      h+=`<div class="sec"><h2>시간 감각<span>중등 · 예상한 시간과 실제 걸린 시간</span></h2>
+        <div class="card"><div class="nums">
+          ${n('예상 합계',fmt(num(row.tsEst))+'h','','스스로 적은 예상')}
+          ${n('실제 합계',fmt(num(row.tsReal))+'h','','실행 시간 기준')}
+          ${n('한 건당 차이',(d>0?'+':'')+d+'m', Math.abs(d)>15, d>0?'예상보다 더 걸림':(d<0?'예상보다 덜 걸림':'예상과 같음'))}
+          ${n('예상 정확도',pct(row.tsAcc),'','100%에 가까울수록 자기 속도를 압니다')}
+          ${n('비교한 항목',row.tsCount+'개','','예상과 실행이 모두 적힌 것')}
+        </div></div></div>`;
+    }
+
     h+=`<div class="sec"><h2>노력의 정직<span>일일학습계획표</span></h2>
       <div class="card">
         <div class="nums" style="margin-bottom:12px">
@@ -618,6 +630,12 @@ function sheetHTML(r){
           <td>${fmt(num(r.fitSlot))}h</td><td>${fmt(num(r.fitDay))}h</td><td>${fmt(num(r.fitWeek))}h</td>
           <td>${pct(r.rate)}</td><td>${r.days||0}일</td></tr>
     </table>
+    ${num(r.tsCount)>0?`<table class="nm">
+      <tr><th>예상 합계</th><th>실제 합계</th><th>한 건당 차이</th><th>예상 정확도</th><th>비교한 항목</th></tr>
+      <tr><td>${fmt(num(r.tsEst))}h</td><td>${fmt(num(r.tsReal))}h</td>
+          <td>${num(r.tsDiff)>0?'+':''}${num(r.tsDiff)}m</td>
+          <td>${pct(r.tsAcc)}</td><td>${r.tsCount}개</td></tr>
+    </table>`:''}
     <table class="lg2">${rows}</table>
   </section>`;
 }
