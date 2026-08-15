@@ -78,7 +78,8 @@
 
   .board{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;overflow-x:auto}
   .gridbox{display:grid;grid-template-columns:50px 38px 1fr;min-width:1080px;
-    touch-action:none;user-select:none;-webkit-user-select:none}
+    user-select:none;-webkit-user-select:none}
+  .gridbox.paint{touch-action:none}   /* 항목을 고르면 칠하기 제스처가 스크롤보다 우선합니다 */
   .hlabels{grid-column:3;position:relative;height:17px;border-bottom:1.5px solid var(--line2)}
   .hlabels span{position:absolute;bottom:4px;transform:translateX(-50%);
     font-size:10px;font-weight:700;color:var(--ink2);white-space:nowrap}
@@ -357,7 +358,7 @@ const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZ
 const TOKEN     = 'canaan2026';
 const PIN       = '1225';
 /* 학기 첫 주의 월요일. 여기 기준으로 몇 주차인지 셉니다. */
-const APP_VER = 'v47';
+const APP_VER = 'v48';
 const SEMESTER_START = '2026-08-24';   /* 개학 8/27이 속한 주의 월요일 = 1주차 */
 
 const CATS = [
@@ -822,6 +823,7 @@ function buildTray(){
     sel = (sel===b.dataset.k) ? '' : b.dataset.k;   /* 같은 항목을 다시 누르면 선택이 풀립니다 */
     buildTray();
   });
+  $('grid').classList.toggle('paint', !!sel);   /* 골랐을 때만 스크롤 대신 칠하기 */
 }
 
 function tally(m){
