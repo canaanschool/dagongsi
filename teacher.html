@@ -135,6 +135,17 @@
   .wrate td{font-size:13px;font-weight:800;text-align:center;padding:8px 0;
     border:1px solid var(--line);font-variant-numeric:tabular-nums}
   .wrate .z{color:#CFC4B9;font-weight:600}
+  .whywrap{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+  .whyhd{font-size:12px;font-weight:800;color:var(--ink);margin-bottom:2px}
+  .whysub{font-size:11px;color:var(--ink2);font-weight:500;margin-bottom:9px}
+  .whyrow{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+  .whyrow .nm{font-size:11.5px;font-weight:700;color:var(--ink2);width:112px;flex:none}
+  .whyrow .br{flex:1;height:15px;background:#F3EDE6;border-radius:4px;overflow:hidden}
+  .whyrow .br i{display:block;height:100%;background:var(--c7);opacity:.72}
+  .whyrow .ct{font-size:11.5px;font-weight:800;color:var(--ink2);width:34px;text-align:right;flex:none}
+  .whyday{font-size:11.5px;color:var(--ink2);font-weight:500;margin-top:9px;line-height:1.7}
+  .whyday b{color:var(--ink);font-weight:800;margin-right:4px}
+  .whynone{font-size:11.5px;color:var(--ink2);font-weight:500}
   .notes{font-size:12.5px;font-weight:600;line-height:1.7;color:var(--ink2)}
   .empty{font-size:12.5px;color:var(--ink2);font-weight:600;padding:18px 0;text-align:center}
 
@@ -186,7 +197,7 @@
 
 <script>
 const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZDNxPIpfp8DsOm0s4PD3dITCl-6z-DEfL7NNGUvty7IJ6s_GQ/exec';
-const APP_VER   = 'v16';
+const APP_VER   = 'v17';
 const SEMESTER_START = '2026-08-24';
 
 const CATS = [
@@ -456,6 +467,37 @@ function dayRateTable(row){
   return h+'</tr></table>';
 }
 
+/* 계획대로 안 된 이유 · 학생 앱에서 달성률이 낮은 날에만 받습니다 */
+const WHY_N = {
+  time:'시간이 모자랐다', other:'딴짓을 했다', hard:'생각보다 어려웠다',
+  many:'계획을 너무 많이 잡았다', sched:'갑작스러운 일정', tired:'피곤해서 못 했다',
+  focus:'집중이 안 됐다', start:'무엇부터 할지 몰랐다', late:'시작이 늦어졌다',
+  mood:'하기 싫었다'
+};
+function whyTable(row){
+  const w=(row.grid&&row.grid.w)||{};
+  const cnt={}; let total=0;
+  const perDay=[];
+  DAYS.forEach((d,i)=>{
+    const list=Array.isArray(w[d])?w[d]:[];
+    if(list.length) perDay.push(`<div><b>${KOR[i]}</b>${
+      list.map(k=>WHY_N[k]||k).join(' · ')}</div>`);
+    list.forEach(k=>{ cnt[k]=(cnt[k]||0)+1; total++; });
+  });
+  if(!total) return `<div class="whywrap"><div class="whyhd">계획대로 안 된 이유</div>
+    <div class="whynone">이번 주에는 고른 것이 없습니다 ·
+    달성률이 50% 아래로 내려간 날에만 학생에게 묻습니다</div></div>`;
+  const max=Math.max(...Object.values(cnt));
+  const bars=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).map(([k,v])=>
+    `<div class="whyrow"><span class="nm">${WHY_N[k]||k}</span>
+       <span class="br"><i style="width:${Math.round(v/max*100)}%"></i></span>
+       <span class="ct">${v}일</span></div>`).join('');
+  return `<div class="whywrap">
+    <div class="whyhd">계획대로 안 된 이유</div>
+    <div class="whysub">달성률이 50% 아래로 내려간 날에만 학생이 고릅니다 · 여러 개 고를 수 있습니다</div>
+    ${bars}<div class="whyday">${perDay.join('')}</div></div>`;
+}
+
 /* ── 본문 ── */
 function render(){
   if(!cur){ $('body').innerHTML=''; return; }
@@ -503,6 +545,7 @@ function render(){
           ${n('주 평균',pct(row.rate),'','반쯤 한 것은 절반으로 셉니다')}
         </div>
         ${dayRateTable(row)}
+        ${whyTable(row)}
       </div></div>`;
 
     h+=`<div class="sec"><h2>주간 계획 실행표<span>읽기 전용 · 계획과 실행이 겹치는 만큼 진해집니다</span></h2>

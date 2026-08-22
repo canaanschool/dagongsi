@@ -50,6 +50,11 @@
   .phead{display:flex;align-items:baseline;gap:9px;margin-bottom:10px;flex-wrap:wrap}
   .phead h2{font-size:18px}
   .ph-sub{font-size:11.5px;color:var(--ink2);font-weight:500}
+  .ph-sub.legend{margin-left:auto;text-align:right;display:flex;align-items:center;flex-wrap:wrap;
+    gap:2px 0;justify-content:flex-end}
+  .ph-sub.legend b{color:var(--ink);font-weight:800;margin-right:2px}
+  .ph-sub.legend .sep{margin:0 8px;color:var(--line2)}
+  .ph-sub.legend .note{flex-basis:100%;text-align:right;margin-top:2px;color:var(--ink2);opacity:.8}
   .phead .right{margin-left:auto;display:flex;align-items:center;gap:6px}
   .tabs{display:flex;gap:6px}
   .tab{font:inherit;font-size:13px;font-weight:800;letter-spacing:-.3px;padding:7px 14px;
@@ -227,6 +232,14 @@
   .scale{display:flex;justify-content:space-between;font-size:10.5px;font-weight:800;color:var(--ink2);margin-top:5px}
   .pct{font-size:26px;font-weight:800;letter-spacing:-1px;margin-bottom:7px}
   .pct em{font-size:12.5px;font-weight:700;color:var(--ink2);font-style:normal;margin-left:6px}
+  .whybox{margin-top:15px;padding:11px 12px;border:1px solid #E8D6CE;border-radius:11px;
+    background:#FDF5F2}
+  .whybox .wt{font-size:11.5px;font-weight:800;color:var(--c7);margin-bottom:2px}
+  .whybox .ws{font-size:11px;color:var(--ink2);font-weight:500;margin-bottom:8px}
+  .whychips{display:flex;flex-wrap:wrap;gap:5px}
+  .whychip{font:inherit;font-size:11.5px;font-weight:700;color:var(--ink2);cursor:pointer;
+    padding:5px 10px;border:1px solid var(--line);border-radius:999px;background:var(--card)}
+  .whychip.on{background:var(--c7);border-color:var(--c7);color:#fff}
   .evaltx{width:100%;height:56px;border:1px solid var(--line);border-radius:9px;
     padding:9px 11px;font-weight:600;resize:none;margin-top:2px}
   .evaltx:focus{border-color:var(--c7)}
@@ -317,9 +330,9 @@
       <div>
         <div class="cardbox"><div class="fields" id="topFields"></div></div>
         <div class="cardbox" style="margin-top:14px">
-          <div class="rowhead" style="margin-bottom:10px;align-items:baseline;justify-content:flex-start;flex-wrap:wrap;gap:9px">
+          <div class="rowhead" style="margin-bottom:10px;align-items:baseline;flex-wrap:wrap;gap:9px">
             <h3 style="margin-bottom:0">오늘 할 일</h3>
-            <span class="ph-sub" id="dsub"></span>
+            <span class="ph-sub legend" id="dsub"></span>
           </div>
           <table class="todo" id="todo"><thead></thead><tbody></tbody></table>
         </div>
@@ -333,6 +346,11 @@
           <div class="scale"><span>0</span><span>100</span></div>
           <div class="mini" style="margin-top:15px">이번 주 달성률</div>
           <table class="wrate" id="wrate"></table>
+          <div class="whybox" id="whybox" style="display:none">
+            <div class="wt">오늘 계획대로 안 된 이유는?</div>
+            <div class="ws">해당하는 걸 모두 골라줘 · 정답은 없어</div>
+            <div class="whychips" id="whychips"></div>
+          </div>
           <div class="mini" style="margin-top:15px">한 줄 평가</div>
           <textarea class="evaltx" id="evaltx" placeholder="오늘 하루를 한 줄로"></textarea>
         </div>
@@ -358,7 +376,7 @@ const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZ
 const TOKEN     = 'canaan2026';
 const PIN       = '1225';
 /* 학기 첫 주의 월요일. 여기 기준으로 몇 주차인지 셉니다. */
-const APP_VER = 'v48';
+const APP_VER = 'v52';
 const SEMESTER_START = '2026-08-24';   /* 개학 8/27이 속한 주의 월요일 = 1주차 */
 
 const CATS = [
@@ -397,7 +415,22 @@ let DEV={}, ROSTER=[];
    src: 'plan' 주간계획표에서 옴 · 'carry' 어제에서 넘어옴 · '' 직접 적음 */
 const blankTodo=()=>({p:'',t:'',st:0,src:'',key:'',edited:false,
   ps:'',pe:'',est:'',rs:'',re:'',tedited:false});
-const blankDay=()=>({action:'',thanks:'',verse:'',eval:'',
+/* 계획대로 안 된 이유 · 달성률이 낮은 날에만 물어봅니다 */
+const WHYS = [
+  {k:'time',  n:'시간이 모자랐다'},
+  {k:'other', n:'딴짓을 했다'},
+  {k:'hard',  n:'생각보다 어려웠다'},
+  {k:'many',  n:'계획을 너무 많이 잡았다'},
+  {k:'sched', n:'갑작스러운 일정이 생겼다'},
+  {k:'tired', n:'피곤해서 못 했다'},
+  {k:'focus', n:'집중이 안 됐다'},
+  {k:'start', n:'무엇부터 할지 몰랐다'},
+  {k:'late',  n:'시작이 늦어졌다'},
+  {k:'mood',  n:'하기 싫었다'}
+];
+const WHY_AT = 50;                      /* 이 % 아래로 내려가면 물어봅니다 */
+
+const blankDay=()=>({action:'',thanks:'',verse:'',eval:'',why:[],
   todos:Array.from({length:NTODO},blankTodo),
   tmr:Array(NTMR).fill('')});
 const blankWeek=()=>{const d={};DAYS.forEach(k=>d[k]=blankDay());return {plan:{},run:{},daily:d,detail:{}};};
@@ -598,6 +631,9 @@ const HELP_W=[
   '같은 항목을 다시 쓸면 지워집니다',
   '키보드가 있으면 팔레트 순서대로 <b>1~8</b> 숫자키로 고를 수 있습니다 · 같은 숫자를 다시 누르면 풀립니다',
   '아무 항목도 고르지 않은 상태에서는 칠해지지 않습니다 · 실수로 그어지는 것을 막는 장치입니다'],
+ ['화면이 좁을 때','항목을 고르지 않은 상태에서는 격자를 좌우로 밀어 넘길 수 있습니다',
+  '항목을 고르면 미는 대신 칠해집니다 · 칠하다가 옆으로 새지 않게 하려는 것입니다',
+  '넘겨보기만 하고 싶으면 고른 항목을 한 번 더 눌러 선택을 푸세요'],
  ['계획과 실행','요일마다 위가 <b>계획</b>, 아래가 <b>실행</b>입니다',
   '계획을 먼저 세우고, 그날 실제로 한 것을 아래 줄에 칠합니다',
   '두 줄이 같은 항목으로 겹치는 칸만 함께 진해집니다 · 연하게 남은 곳이 어긋난 구간입니다'],
@@ -621,6 +657,9 @@ const HELP_D=[
   '넘어온 것은 다음 날 맨 위에 붙습니다'],
  ['예상 시간','걸릴 것 같은 시간을 먼저 적어 두면, 실제 걸린 시간과의 차이가 배지로 보입니다',
   '이 차이를 줄여가는 것이 시간 감각을 기르는 연습입니다'],
+ ['계획대로 안 된 날','그날 달성률이 <b>50% 아래</b>로 내려가면 오른쪽에 이유를 고르는 칸이 나옵니다',
+  '해당하는 것을 모두 고르면 됩니다 · 정답이 있는 것이 아니라 무엇이 자꾸 걸리는지 찾기 위한 것입니다',
+  '잘못 골랐으면 다시 눌러 풀 수 있습니다'],
  ['오른쪽','목표 달성률과 이번 주 흐름이 자동으로 나옵니다',
   '하루를 한 줄로 남기고, 내일 할 일을 적습니다 (다음 날 계획에서 자동으로 올라옵니다)']
 ];
@@ -1013,6 +1052,25 @@ function renderGauge(){
   $('gauge').innerHTML=Array.from({length:5},(_,i)=>{
     const f=Math.max(0,Math.min(1,pct/20-i));
     return `<i>${f>0?`<span style="width:${f*100}%"></span>`:''}</i>`;}).join('');
+  safe(renderWhy,'renderWhy');
+}
+/* 달성률이 낮은 날에만 이유를 묻습니다. 손으로 적는 일을 늘리지 않도록 버튼으로만 받습니다 */
+function renderWhy(){
+  const box=$('whybox'); if(!box) return;
+  const d=D();
+  const t=d.todos.filter(r=>r.t.trim());
+  const r=dayRate(d);
+  const ask = t.length>0 && r!==null && r<WHY_AT;
+  if(!Array.isArray(d.why)) d.why=[];
+  if(!ask && !d.why.length){ box.style.display='none'; return; }
+  box.style.display='';
+  $('whychips').innerHTML=WHYS.map(w=>
+    `<button class="whychip${d.why.includes(w.k)?' on':''}" data-k="${w.k}">${w.n}</button>`).join('');
+  $('whychips').querySelectorAll('.whychip').forEach(b=>b.onclick=()=>{
+    const k=b.dataset.k, i=d.why.indexOf(k);
+    if(i<0) d.why.push(k); else d.why.splice(i,1);
+    renderWhy(); save();
+  });
 }
 function renderWeekRate(){
   const el=$('wrate'); if(!el) return;
@@ -1150,9 +1208,12 @@ function syncDay(dayKey){
 const safe=(fn,name)=>{ try{ fn(); }catch(e){ console.error(name, e); } };
 function renderDaily(){
   for(let i=0;i<=DAYS.indexOf(curDay);i++) syncDay(DAYS[i]);
-  if($('dsub')) $('dsub').textContent = isMid()
+  if($('dsub')) $('dsub').innerHTML = isMid()
     ? '계획 · 실행 시간은 주간 계획 실행표에서 들어옵니다 · 분 단위로 고칠 수 있습니다'
-    : '○ 다 했다 · △ 반쯤 했다 · → 내일로 · △ 와 → 만 다음 날로 넘어갑니다';
+    : `<span><b>○</b>다 했다</span><span class="sep">·</span>
+       <span><b>△</b>반쯤 했다</span><span class="sep">·</span>
+       <span><b>→</b>내일로</span>
+       <span class="note">△ 와 → 만 다음 날로 넘어갑니다</span>`;
   safe(renderTop,'renderTop'); safe(renderTodo,'renderTodo');
   safe(renderGauge,'renderGauge'); safe(renderTmr,'renderTmr');
   safe(renderWeekRate,'renderWeekRate');
@@ -1204,6 +1265,13 @@ function packGrid(mode){
   }).join('|');
 }
 
+/* 계획대로 안 된 이유를 요일별로 모읍니다 (예: {mon:['time','focus']}) */
+function packWhy(){
+  const out={};
+  DAYS.forEach(k=>{ const w=W.daily[k].why; if(Array.isArray(w)&&w.length) out[k]=w.slice(); });
+  return out;
+}
+
 /* 중등 : 예상 시간과 실제 걸린 시간의 차이 */
 function timeSense(){
   let est=0, real=0, cnt=0, over=0, under=0, diffAbs=0;
@@ -1226,11 +1294,12 @@ function timeSense(){
 
 function summarize(){
   const R=tally('run'), F=fitness();
-  let done=0,tot=0,days=0;
+  let sum=0,tot=0,days=0;
   DAYS.forEach(k=>{
     const t=W.daily[k].todos.filter(x=>x.t.trim());
     if(t.length) days++;
-    tot+=t.length; done+=t.filter(x=>x.done).length;
+    tot+=t.length;
+    sum+=t.reduce((a,r)=>a+Math.max(0,r.st),0);   /* 100 / 50 / 0 · 내일로(-1)는 0 */
   });
   const blank=R.blank.reduce((a,b)=>a+b,0);
   const filled=R.total.reduce((a,b)=>a+b,0);
@@ -1244,7 +1313,7 @@ function summarize(){
     logged: Math.round(filled/144*100)+'%',   /* 24시간 중 채운 비율 */
     plan  : F.plan,
     fitSlot: F.slot, fitDay: F.day, fitWeek: F.week,
-    rate  : tot?Math.round(done/tot*100)+'%':'',
+    rate  : tot?Math.round(sum/tot)+'%':'',
     days,                                            /* 계획표 작성 일수 */
     dayRates: DAYS.map(k=>{const r=dayRate(W.daily[k]); return r===null?'':r+'%';}),
     mid: isMid(),
@@ -1260,7 +1329,8 @@ async function push(){
     const res=await fetch(SHEET_URL,{method:'POST',body:JSON.stringify({
       token:TOKEN, week:curWeek, grade:profile.grade, cls:profile.cls||'',
       num:profile.num, name:profile.name,
-      summary:summarize(), grid:{p:packGrid('plan'), r:packGrid('run')}})});
+      summary:summarize(),
+      grid:{p:packGrid('plan'), r:packGrid('run'), w:packWhy()}})});
     const j=await res.json();
     if(j&&j.ok) setStat('동기화됨');
     else setStat(j&&j.error==='roster' ? '명단에 없음' : '오류', true);
