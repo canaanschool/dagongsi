@@ -146,6 +146,45 @@
   .whyday{font-size:11.5px;color:var(--ink2);font-weight:500;margin-top:9px;line-height:1.7}
   .whyday b{color:var(--ink);font-weight:800;margin-right:4px}
   .whynone{font-size:11.5px;color:var(--ink2);font-weight:500}
+  .vtabs{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 16px}
+  .vtab{font:inherit;font-size:13px;font-weight:800;letter-spacing:-.3px;color:var(--ink2);
+    cursor:pointer;padding:9px 18px;border:1px solid var(--line);border-radius:999px;
+    background:transparent}
+  .vtab.on{background:var(--card);border-color:var(--line2);color:var(--ink);
+    box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  .dtabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:11px}
+  .dtab{font:inherit;font-size:12px;font-weight:700;color:var(--ink2);cursor:pointer;
+    padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--card)}
+  .dtab em{font-style:normal;font-weight:600;opacity:.72;margin-left:4px}
+  .dtab.on{background:var(--c7);border-color:var(--c7);color:#fff}
+  .dtab.dim{opacity:.5}
+  .dhead{display:flex;flex-wrap:wrap;gap:7px 22px;margin-bottom:12px;
+    padding-bottom:11px;border-bottom:1px solid var(--line)}
+  .dhead div{font-size:12px;color:var(--ink);font-weight:600}
+  .dhead b{font-size:11px;font-weight:800;color:var(--c7);margin-right:6px}
+  .dhead .none{color:#BFB4A8;font-weight:500}
+  table.dtd{border-collapse:collapse;width:100%;table-layout:fixed}
+  .dtd th{font-size:11px;font-weight:800;color:var(--ink2);background:var(--soft);
+    padding:7px 4px;border:1px solid var(--line);text-align:center}
+  .dtd td{font-size:12px;color:var(--ink);padding:7px 8px;border:1px solid var(--line);
+    vertical-align:middle}
+  .dtd td.c{text-align:center;font-weight:700}
+  .dtd td.tm{text-align:center;font-size:11.5px;font-weight:700;color:var(--ink2)}
+  .dtd .st{display:inline-block;min-width:21px;padding:2px 0;border-radius:6px;
+    font-size:11.5px;font-weight:800;text-align:center}
+  .dtd .st.f{background:#2E7D67;color:#fff}
+  .dtd .st.h{background:#E4B95E;color:#fff}
+  .dtd .st.p{background:#C9BDB1;color:#fff}
+  .dtd .bd{font-size:10.5px;font-weight:800;margin-left:5px;padding:1px 5px;border-radius:5px}
+  .dtd .bd.o{background:#FBE9E4;color:#B5502F}
+  .dtd .bd.u{background:#E4F0EA;color:#2E7D67}
+  .dtmr{margin-top:12px;padding-top:11px;border-top:1px solid var(--line)}
+  .dtmr b{font-size:11px;font-weight:800;color:var(--c7);margin-right:6px}
+  .dtmr span{font-size:12px;color:var(--ink);font-weight:600}
+  .dtmr i{font-style:normal;color:var(--line2);margin:0 6px}
+  .deval{margin-top:11px;font-size:12px;color:var(--ink);font-weight:600;
+    background:var(--soft);border-radius:9px;padding:9px 11px}
+  .deval b{font-size:11px;font-weight:800;color:var(--c7);margin-right:6px}
   .notes{font-size:12.5px;font-weight:600;line-height:1.7;color:var(--ink2)}
   .empty{font-size:12.5px;color:var(--ink2);font-weight:600;padding:18px 0;text-align:center}
 
@@ -197,7 +236,7 @@
 
 <script>
 const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZDNxPIpfp8DsOm0s4PD3dITCl-6z-DEfL7NNGUvty7IJ6s_GQ/exec';
-const APP_VER   = 'v17';
+const APP_VER   = 'v19a';
 const SEMESTER_START = '2026-08-24';
 
 const CATS = [
@@ -498,6 +537,100 @@ function whyTable(row){
     ${bars}<div class="whyday">${perDay.join('')}</div></div>`;
 }
 
+/* 일일학습계획표 · 읽기 전용으로 되살립니다 */
+let curDay = 'MON';
+let curView = 'w';
+function dailyHTML(row){
+  const D=(row.grid&&row.grid.d)||{};
+  const mid=!!(row.grid&&row.grid.mid);
+  const base=new Date(row.week+'T00:00:00');
+  if(!Object.keys(D).length)
+    return `<div class="card"><div class="empty">이 주에는 일일학습계획표 기록이 없습니다</div></div>`;
+
+  if(!D[curDay]){ const f=DAYS.find(k=>D[k]); if(f) curDay=f; }
+
+  const tabs=DAYS.map((k,i)=>{
+    const dt=addD(base,i);
+    return `<button class="dtab${k===curDay?' on':''}${D[k]?'':' dim'}" data-d="${k}">${
+      KOR[i]}<em>${dt.getMonth()+1}/${dt.getDate()}</em></button>`;
+  }).join('');
+
+  const d=D[curDay]||{};
+  const rows2=d.rows||[];
+
+  const head=`<div class="dhead">
+    <div><b>묵상</b>${d.verse?esc(d.verse):'<span class="none">—</span>'}</div>
+    <div><b>액션 포인트</b>${d.action?esc(d.action):'<span class="none">—</span>'}</div>
+    <div><b>감사 제목</b>${d.thanks?esc(d.thanks):'<span class="none">—</span>'}</div>
+  </div>`;
+
+  const st=v=> v===100?'<span class="st f">○</span>'
+            : v===50 ?'<span class="st h">△</span>'
+            : v===-1 ?'<span class="st p">→</span>' : '';
+
+  let table;
+  if(!rows2.length){
+    table=`<div class="empty">이 날은 적은 것이 없습니다</div>`;
+  }else if(mid){
+    table=`<table class="dtd"><tr>
+      <th style="width:46px">우선</th><th style="width:104px">계획 시간</th><th>Study Plan</th>
+      <th style="width:62px">예상</th><th style="width:118px">실행 시간</th>
+      <th style="width:52px">달성</th></tr>`
+      + rows2.map(r=>{
+          const gap=gapM(r.rs,r.re), est=estM(r.est);
+          let bd='';
+          if(gap!==null&&est!==null&&gap!==est){
+            const df=gap-est;
+            bd=`<span class="bd ${df>0?'o':'u'}">${df>0?'+':''}${df}m</span>`;
+          }
+          return `<tr><td class="c">${esc(r.p||'')}</td>
+            <td class="tm">${tmTxt(r.ps,r.pe)}</td>
+            <td>${esc(r.t||'')}</td>
+            <td class="tm">${esc(r.est||'')}</td>
+            <td class="tm">${tmTxt(r.rs,r.re)}${bd}</td>
+            <td class="c">${st(r.st)}</td></tr>`;
+        }).join('') + `</table>`;
+  }else{
+    table=`<table class="dtd"><tr>
+      <th style="width:46px">우선</th><th>구체적인 학습 내용</th>
+      <th style="width:52px">달성</th></tr>`
+      + rows2.map(r=>`<tr><td class="c">${esc(r.p||'')}</td>
+          <td>${esc(r.t||'')}</td><td class="c">${st(r.st)}</td></tr>`).join('')
+      + `</table>`;
+  }
+
+  const tmr=(d.tmr||[]).length
+    ? `<div class="dtmr"><b>내일 할 일</b>${
+        d.tmr.map(x=>`<span>${esc(x)}</span>`).join('<i>·</i>')}</div>` : '';
+  const ev=d.eval
+    ? `<div class="deval"><b>한 줄 평가</b>${esc(d.eval)}</div>` : '';
+
+  return `<div class="card"><div class="dtabs">${tabs}</div>${head}${table}${tmr}${ev}</div>`;
+}
+function tmTxt(a,b){
+  a=String(a||'').trim(); b=String(b||'').trim();
+  if(!a&&!b) return '<span style="color:#CFC4B9">—</span>';
+  return `${a||'--:--'} ~ ${b||'--:--'}`;
+}
+function toM(t){
+  const m=String(t||'').match(/^(\d{1,2})\s*[:.]?\s*(\d{2})$/);
+  if(!m) return null;
+  const h=+m[1], n2=+m[2];
+  if(h>24||n2>59) return null;
+  return h*60+n2;
+}
+function gapM(a,b){
+  const x=toM(a), y=toM(b);
+  if(x===null||y===null) return null;
+  return y>=x ? y-x : y+1440-x;
+}
+function estM(v){
+  const m=String(v||'').match(/(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?/);
+  if(!m) return null;
+  const t=(+(m[1]||0))*60 + (+(m[2]||0));
+  return t||null;
+}
+
 /* ── 본문 ── */
 function render(){
   if(!cur){ $('body').innerHTML=''; return; }
@@ -508,6 +641,9 @@ function render(){
   if(!row){
     h+=`<div class="card"><div class="empty">이 주에는 기록이 없습니다</div></div>`;
   }else{
+    h+=`<div class="vtabs"><button class="vtab${curView==='w'?' on':''}" data-v="w">주간 계획 실행표</button><button class="vtab${curView==='d'?' on':''}" data-v="d">일일학습계획표</button></div>`;
+
+    if(curView==='w'){
     const filled=num(row.filled);
     h+=`<div class="sec"><h2>시간의 정직<span>주간 계획 실행표에서</span></h2>
       <div class="card"><div class="nums">
@@ -538,6 +674,18 @@ function render(){
         </div></div></div>`;
     }
 
+    h+=`<div class="sec"><h2>주간 계획 실행표<span>읽기 전용 · 계획과 실행이 겹치는 만큼 진해집니다</span></h2>
+        <div class="card">${gridHTML(row)}</div></div>`;
+
+    h+=`<div class="sec"><h2>주간 시간 분배<span>위 작은 숫자가 계획, 아래 큰 숫자가 실행입니다</span></h2>
+        <div class="card">${splitTable(row)}</div></div>`;
+
+    h+=`<div class="sec"><h2>하루 흐름<span>실행 기준</span></h2>
+        <div class="card">${bandChart(row)}</div></div>`;
+
+    }
+
+    if(curView==='d'){
     h+=`<div class="sec"><h2>노력의 정직<span>일일학습계획표</span></h2>
       <div class="card">
         <div class="nums" style="margin-bottom:12px">
@@ -548,17 +696,14 @@ function render(){
         ${whyTable(row)}
       </div></div>`;
 
-    h+=`<div class="sec"><h2>주간 계획 실행표<span>읽기 전용 · 계획과 실행이 겹치는 만큼 진해집니다</span></h2>
-        <div class="card">${gridHTML(row)}</div></div>`;
-
-    h+=`<div class="sec"><h2>주간 시간 분배<span>위 작은 숫자가 계획, 아래 큰 숫자가 실행입니다</span></h2>
-        <div class="card">${splitTable(row)}</div></div>`;
-
-    h+=`<div class="sec"><h2>하루 흐름<span>실행 기준</span></h2>
-        <div class="card">${bandChart(row)}</div></div>`;
+    h+=`<div class="sec"><h2>일일학습계획표<span>읽기 전용 · 요일을 눌러 그날 기록을 봅니다</span></h2>
+        ${dailyHTML(row)}</div>`;
 
     if(row.note) h+=`<div class="sec"><h2>한 줄 평가</h2>
         <div class="card notes">${esc(row.note)}</div></div>`;
+
+    }
+
   }
 
   if(list.length){
@@ -586,6 +731,12 @@ function render(){
       </div></div>`;
 
   $('body').innerHTML=h;
+  document.querySelectorAll('.dtab').forEach(b=>b.onclick=()=>{
+    curDay=b.dataset.d; render();
+  });
+  document.querySelectorAll('.vtab').forEach(b=>b.onclick=()=>{
+    curView=b.dataset.v; render(); window.scrollTo(0,0);
+  });
   if($('pms')) $('pms').onclick=saveLog;
   if($('prt')) $('prt').onclick=()=>printLog(false);
   if($('prtAll')) $('prtAll').onclick=()=>printLog(true);

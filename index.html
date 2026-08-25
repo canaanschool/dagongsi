@@ -376,7 +376,7 @@ const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZ
 const TOKEN     = 'canaan2026';
 const PIN       = '1225';
 /* 학기 첫 주의 월요일. 여기 기준으로 몇 주차인지 셉니다. */
-const APP_VER = 'v52';
+const APP_VER = 'v53';
 const SEMESTER_START = '2026-08-24';   /* 개학 8/27이 속한 주의 월요일 = 1주차 */
 
 const CATS = [
@@ -1265,6 +1265,29 @@ function packGrid(mode){
   }).join('|');
 }
 
+/* 일일학습계획표를 교사용에서 읽기 전용으로 되살리기 위한 재료입니다.
+   빈 줄과 빈 값은 빼서 보내는 양을 줄입니다 */
+function packDaily(){
+  const out={};
+  DAYS.forEach(k=>{
+    const d=W.daily[k], o={};
+    const rows=(d.todos||[]).filter(r=>String(r.t||'').trim()||String(r.p||'').trim())
+      .map(r=>{
+        const t={t:String(r.t||''), st:r.st|0};
+        if(String(r.p||'').trim()) t.p=String(r.p);
+        ['ps','pe','est','rs','re'].forEach(f=>{ if(String(r[f]||'').trim()) t[f]=String(r[f]); });
+        return t;
+      });
+    if(rows.length) o.rows=rows;
+    ['verse','action','thanks','eval'].forEach(f=>{
+      if(String(d[f]||'').trim()) o[f]=String(d[f]).trim(); });
+    const tmr=(d.tmr||[]).map(x=>String(x||'').trim()).filter(Boolean);
+    if(tmr.length) o.tmr=tmr;
+    if(Object.keys(o).length) out[k]=o;
+  });
+  return out;
+}
+
 /* 계획대로 안 된 이유를 요일별로 모읍니다 (예: {mon:['time','focus']}) */
 function packWhy(){
   const out={};
@@ -1330,7 +1353,8 @@ async function push(){
       token:TOKEN, week:curWeek, grade:profile.grade, cls:profile.cls||'',
       num:profile.num, name:profile.name,
       summary:summarize(),
-      grid:{p:packGrid('plan'), r:packGrid('run'), w:packWhy()}})});
+      grid:{p:packGrid('plan'), r:packGrid('run'), w:packWhy(), d:packDaily(),
+            mid:isMid()?1:0}})});
     const j=await res.json();
     if(j&&j.ok) setStat('동기화됨');
     else setStat(j&&j.error==='roster' ? '명단에 없음' : '오류', true);
