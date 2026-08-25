@@ -171,7 +171,6 @@
   .f input:focus{border-color:var(--c7)}
   .f .fixed{flex:1;border-bottom:1.5px solid var(--half);padding:5px 3px;font-weight:700;
     color:#7C5A86;font-size:13.5px}
-  .tagv{font-size:10px;font-weight:800;color:#fff;background:#7C5A86;border-radius:5px;padding:2px 6px;flex:0 0 auto}
 
   table.todo{border-collapse:collapse;width:100%;table-layout:fixed;margin-top:4px}
   table.todo th:first-child{width:52px}
@@ -376,7 +375,7 @@ const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZ
 const TOKEN     = 'canaan2026';
 const PIN       = '1225';
 /* 학기 첫 주의 월요일. 여기 기준으로 몇 주차인지 셉니다. */
-const APP_VER = 'v53';
+const APP_VER = 'v54';
 const SEMESTER_START = '2026-08-24';   /* 개학 8/27이 속한 주의 월요일 = 1주차 */
 
 const CATS = [
@@ -922,7 +921,7 @@ const verseOf=()=>DEV[ymd(dateOf(DAYS.indexOf(curDay)))] || '';
 function renderTop(){
   const d=D(), v=verseOf();
   let h=`<div class="f"><span class="dot"></span><label>오늘의 묵상 본문</label>`;
-  h += v ? `<span class="tagv">배포됨</span><div class="fixed">${esc(v)}</div>`
+  h += v ? `<div class="fixed">${esc(v)}</div>`
          : `<input id="fv" placeholder="아직 배포된 말씀이 없습니다 · 직접 적어도 됩니다" value="${esc(d.verse)}">`;
   h += `</div>
     <div class="f"><span class="dot"></span><label>액션 포인트</label>
