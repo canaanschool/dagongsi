@@ -376,7 +376,7 @@ const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZ
 const TOKEN     = 'canaan2026';
 const PIN       = '1225';
 /* 학기 첫 주의 월요일. 여기 기준으로 몇 주차인지 셉니다. */
-const APP_VER = 'v56';
+const APP_VER = 'v57';
 const SEMESTER_START = '2026-08-24';   /* 개학 8/27이 속한 주의 월요일 = 1주차 */
 
 const CATS = [
@@ -1430,15 +1430,35 @@ function summarize(){
 }
 let syncT=null;
 function queueSync(){ if(!SHEET_URL) return; clearTimeout(syncT); setStat('저장 중'); syncT=setTimeout(push,2500); }
-async function push(){
+/* 화면을 벗어날 때 아직 못 보낸 것이 있으면 곧바로 내보냅니다.
+   2.5초를 기다리다 앱이 닫히면 그 사이 고친 것이 시트에 오르지 못했습니다 */
+function flushSync(){
+  if(!syncT) return;
+  clearTimeout(syncT); syncT=null;
+  push(true);
+}
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) flushSync(); });
+window.addEventListener('pagehide', flushSync);
+async function push(urgent){
   if(!profile){ return; }
+  syncT=null;
+  const body=JSON.stringify({
+    token:TOKEN, week:curWeek, grade:profile.grade, cls:profile.cls||'',
+    num:profile.num, name:profile.name,
+    summary:summarize(),
+    grid:{p:packGrid('plan'), r:packGrid('run'), w:packWhy(), d:packDaily(),
+          np:packNames('plan'), nr:packNames('run'), mid:isMid()?1:0}});
+  /* 앱이 닫히는 중에는 보통 요청이 끊깁니다.
+     sendBeacon 은 화면이 사라진 뒤에도 끝까지 보내 줍니다 */
+  if(urgent && navigator.sendBeacon){
+    try{
+      if(navigator.sendBeacon(SHEET_URL, new Blob([body],{type:'text/plain;charset=UTF-8'}))){
+        setStat('동기화됨'); return;
+      }
+    }catch(e){}
+  }
   try{
-    const res=await fetch(SHEET_URL,{method:'POST',body:JSON.stringify({
-      token:TOKEN, week:curWeek, grade:profile.grade, cls:profile.cls||'',
-      num:profile.num, name:profile.name,
-      summary:summarize(),
-      grid:{p:packGrid('plan'), r:packGrid('run'), w:packWhy(), d:packDaily(),
-            np:packNames('plan'), nr:packNames('run'), mid:isMid()?1:0}})});
+    const res=await fetch(SHEET_URL,{method:'POST',body, keepalive:!!urgent});
     const j=await res.json();
     if(j&&j.ok) setStat('동기화됨');
     else setStat(j&&j.error==='roster' ? '명단에 없음' : '오류', true);
