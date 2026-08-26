@@ -59,6 +59,16 @@
 
   /* 숫자 */
   .nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:9px}
+  .nums.fit{grid-template-columns:2fr 1fr 1fr}
+  .nums.fit .n.lead b{font-size:30px}
+  .nums.fit .n.lead{padding:14px 14px 12px}
+  .nums.two{grid-template-columns:1fr 1fr}
+  .nums.two .n b{font-size:26px}
+  .readout{margin-top:11px;padding:9px 12px;border-radius:9px;background:var(--soft);
+    font-size:12px;font-weight:600;color:var(--ink);line-height:1.6}
+  .readout.warn{background:#FBEFEA;color:#8E4227}
+  .readout.thin{color:var(--ink2);font-weight:500}
+  .n .sub{display:block;font-size:10.5px;color:var(--ink2);font-weight:600;margin-top:3px}
   .n{background:var(--soft);border-radius:10px;padding:10px 12px}
   .n b{display:block;font-size:20px;font-weight:800;letter-spacing:-.6px;font-variant-numeric:tabular-nums}
   .n i{display:block;font-size:11px;font-weight:700;color:var(--ink2);font-style:normal;margin-top:2px}
@@ -193,6 +203,20 @@
     justify-content:center;z-index:50;padding:20px}
   .veil.hide{display:none}
   .modal{background:var(--card);border-radius:16px;padding:26px 28px;width:330px;max-width:100%}
+  .modal.hmodal{width:660px;text-align:left;position:relative;padding:24px 26px}
+  .hmodal .x{position:absolute;top:14px;right:16px;border:0;background:transparent;
+    font:inherit;font-size:19px;color:var(--ink2);cursor:pointer;line-height:1}
+  .hmodal h3{margin-bottom:4px}
+  .hmodal .lead{font-size:12px;color:var(--ink2);font-weight:500;margin-bottom:14px;line-height:1.7}
+  .hbody{max-height:66vh;overflow-y:auto;padding-right:6px}
+  .hbody h4{font-size:13px;font-weight:800;color:var(--c7);margin:16px 0 6px}
+  .hbody h4:first-child{margin-top:0}
+  .hbody ul{margin:0;padding-left:17px}
+  .hbody li{font-size:12.5px;color:var(--ink2);font-weight:500;line-height:1.75;margin-bottom:3px}
+  .hbody li b{color:var(--ink);font-weight:800}
+  .hbody .eg{font-size:12px;color:var(--ink2);font-weight:500;line-height:1.7;
+    background:var(--soft);border-radius:9px;padding:10px 12px;margin:8px 0 2px}
+  .hbody .eg b{color:var(--ink);font-weight:800}
   .modal h3{font-size:17px;font-weight:800;margin-bottom:4px}
   .modal p{font-size:12.5px;color:var(--ink2);font-weight:500;margin-bottom:16px}
   .mf{border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:10px}
@@ -220,11 +244,14 @@
     <div class="wklabel" id="wkl"></div>
     <button class="btn" id="tw">이번 주</button>
     <span class="stat" id="stat"></span>
+    <button class="rf" id="help" title="지표 설명">?</button>
     <button class="rf" id="refresh" title="새로고침">⟳</button>
   </div>
 
   <div id="body"></div>
 </div>
+
+<div class="veil hide" id="hveil"><div class="modal hmodal" id="hmodal"></div></div>
 
 <div class="veil" id="veil"><div class="modal">
   <h3>교사용 화면</h3>
@@ -236,7 +263,7 @@
 
 <script>
 const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZDNxPIpfp8DsOm0s4PD3dITCl-6z-DEfL7NNGUvty7IJ6s_GQ/exec';
-const APP_VER   = 'v19a';
+const APP_VER   = 'v21';
 const SEMESTER_START = '2026-08-24';
 
 const CATS = [
@@ -338,41 +365,69 @@ function unpack(str){
   });
   return out;
 }
-function runsOf(g,d){
+/* 학생 앱이 보낸 이름 덩어리를 칸마다 펼칩니다 */
+function spreadNames(list){
+  const out={};
+  Object.keys(list||{}).forEach(d=>{
+    (list[d]||[]).forEach(r=>{ for(let i=r.s;i<r.e;i++) out[`${d}-${i}`]=r.n; });
+  });
+  return out;
+}
+let NP={}, NR={};
+const nmAt=(m,d,i)=>((m==='plan'?NP:NR)[`${d}-${i}`])||'';
+
+function runsOf(g,d,mode){
   const out=[]; let i=0;
   while(i<NS){
     const k=g[`${d}-${i}`];
     if(!k){i++;continue;}
-    let j=i; while(j+1<NS && g[`${d}-${j+1}`]===k) j++;
-    out.push({k,s:i,e:j+1}); i=j+1;
+    const nm=mode?nmAt(mode,d,i):'';
+    let j=i;
+    while(j+1<NS && g[`${d}-${j+1}`]===k && (!mode||nmAt(mode,d,j+1)===nm)) j++;
+    out.push({k,s:i,e:j+1,nm}); i=j+1;
   }
   return out;
 }
 function matchRuns(p,r,d){
+  const same=i=>{
+    const a=p[`${d}-${i}`], b=r[`${d}-${i}`];
+    if(!a||a!==b) return null;
+    if(nmAt('plan',d,i)!==nmAt('run',d,i)) return null;   /* 이름까지 같아야 합니다 */
+    return a;
+  };
   const out=[]; let i=0;
   while(i<NS){
-    const a=p[`${d}-${i}`], b=r[`${d}-${i}`];
-    if(!a||a!==b){i++;continue;}
+    const a=same(i);
+    if(!a){i++;continue;}
     let j=i;
-    while(j+1<NS){ const a2=p[`${d}-${j+1}`], b2=r[`${d}-${j+1}`];
-      if(a2&&a2===b2&&a2===a) j++; else break; }
-    out.push({k:a,s:i,e:j+1}); i=j+1;
+    while(j+1<NS){ const a2=same(j+1);
+      if(a2&&a2===a && nmAt('plan',d,j+1)===nmAt('plan',d,i)) j++; else break; }
+    out.push({k:a,s:i,e:j+1,nm:nmAt('plan',d,i)}); i=j+1;
   }
   return out;
+}
+/* 이름이 붙으면 같은 계열 안에서 밝기만 달라집니다 (학생 앱과 같은 규칙) */
+function shade(hex,name){
+  if(!name) return hex;
+  let x=0; for(let i=0;i<name.length;i++) x=(x*31+name.charCodeAt(i))>>>0;
+  const step=[-16,14,-30,28,-44][x%5];
+  const v=parseInt(hex.slice(1),16), cl=q=>Math.max(0,Math.min(255,q+step));
+  return '#'+((1<<24)+(cl(v>>16&255)<<16)+(cl(v>>8&255)<<8)+cl(v&255)).toString(16).slice(1);
 }
 const pc=r=>`left:${r.s/NS*100}%;width:${(r.e-r.s)/NS*100}%`;
 function trackHTML(g,fits){
   let h='';
   const seg=(r,fade)=>{const c=BYS[r.k]; if(!c) return '';
-    return `<div class="sg" style="${pc(r)};background:${c.c}${fade?FADE:''}"></div>`;};
+    return `<div class="sg" style="${pc(r)};background:${shade(c.c,r.nm)}${fade?FADE:''}"></div>`;};
   g.forEach(r=>h+=seg(r,true));
   fits.forEach(r=>h+=seg(r,false));
   g.forEach(r=>{ const c=BYS[r.k]; if(!c||r.e-r.s<2) return;
-    h+=`<div class="lb" style="${pc(r)}">${c.n}</div>`; });
+    h+=`<div class="lb" style="${pc(r)}">${esc(r.nm||c.n)}</div>`; });
   return h;
 }
 function gridHTML(row){
   const P=unpack(row.grid&&row.grid.p), R=unpack(row.grid&&row.grid.r);
+  NP=spreadNames(row.grid&&row.grid.np); NR=spreadNames(row.grid&&row.grid.nr);
   const base=new Date(curWeek+'T00:00:00');
   let h='<div class="sp"></div><div class="sp"></div><div class="hl">';
   for(let i=0;i<=NH;i++){
@@ -383,8 +438,8 @@ function gridHTML(row){
   DAYS.forEach((d,di)=>{
     const dt=addD(base,di), fits=matchRuns(P,R,di);
     h+=`<div class="day">${d}<i>${dt.getMonth()+1}/${dt.getDate()}</i></div>`;
-    h+=`<div class="kd p">계획</div><div class="tr p">${trackHTML(runsOf(P,di),fits)}</div>`;
-    h+=`<div class="kd r">실행</div><div class="tr r">${trackHTML(runsOf(R,di),fits)}</div>`;
+    h+=`<div class="kd p">계획</div><div class="tr p">${trackHTML(runsOf(P,di,'plan'),fits)}</div>`;
+    h+=`<div class="kd r">실행</div><div class="tr r">${trackHTML(runsOf(R,di,'run'),fits)}</div>`;
   });
   return `<div class="scroll"><div class="gridbox">${h}</div></div>`;
 }
@@ -537,6 +592,91 @@ function whyTable(row){
     ${bars}<div class="whyday">${perDay.join('')}</div></div>`;
 }
 
+/* 지표 설명 · 무엇을 재는 숫자인지까지만 씁니다.
+   '그래서 이렇게 하라'는 상담을 해 보고 채워 나갑니다 */
+const HELP = [
+ ['세 가지 정직',
+  ['<b>시간의 정직</b> — 내 24시간을 어떻게 배분하고 있나 · 대표 지표는 딱 맞춤',
+   '<b>노력의 정직</b> — 정한 시간에 실제로 최선을 다했나 · 대표 지표는 달성률',
+   '<b>실력의 정직</b> — 꿈 대비 지금 내 위치가 어디인가 · 취약 과목과 공부 방법',
+   '순서가 중요합니다 · 시간이 확보되어야 그 시간의 밀도를 볼 수 있고, 그래야 실력이 쌓입니다']],
+ ['계획 지킴 — 시각이 맞았나',
+  ['셋 다 항목별로 30분 칸을 셉니다 · 이름을 붙인 칸은 이름까지 같아야 합니다',
+   '<b>딱 맞춤</b> — 같은 요일, 같은 시각에 계획과 실행이 같은 것',
+   '<b>그날 채움</b> — 시간대는 달라도 그날 안에 채운 것',
+   '<b>그 주 채움</b> — 요일도 달라도 그 주 안에 채운 것',
+   '왼쪽이 항상 작거나 같습니다 · <b>어디서 벌어지는지</b>가 진단입니다'],
+  '월요일에 06~09시 공부를 계획하고 07~10시에 했다면 딱 맞춤은 겹치는 <b>2시간</b>, 그날 채움은 <b>3시간</b>입니다. 화요일 계획 2시간을 못 하고 수요일에 했다면 그 주 채움에서만 잡힙니다.'],
+ ['시간 감각 — 길이가 맞았나',
+  ['일일학습계획표에서 <b>예상 시간과 실행 시간이 둘 다 적힌 줄</b>만 셉니다',
+   '<b>한 건당 차이</b> — 한 항목당 평균 몇 분 빗나갔나 · 부호가 살아 있어 <b>치우친 방향</b>을 봅니다',
+   '<b>예상 정확도</b> — 오차의 크기 · 부호를 지우고 <b>얼마나 정확한가</b>를 봅니다',
+   '항목 수가 적으면 어느 쪽도 판단하기 어렵습니다'],
+  '영어 +30분, 수학 −30분, 국어 0분이면 한 건당 차이는 <b>0분</b>이지만 예상 정확도는 <b>75%</b>입니다. 평균으로는 맞췄어도 매번 30분씩 빗나간 것입니다. 그래서 둘을 함께 봅니다.'],
+ ['계획 지킴과 시간 감각의 차이',
+  ['계획 지킴은 <b>시각</b>, 시간 감각은 <b>길이</b>입니다',
+   '딱 맞춤이 높고 정확도가 낮으면 — 시작은 제때 하는데 얼마나 걸릴지 모르는 것',
+   '딱 맞춤이 낮고 정확도가 높으면 — 자기 속도는 아는데 시작을 못 하는 것']],
+ ['노력의 정직',
+  ['<b>작성</b> — 6일 중 며칠을 썼나',
+   '<b>주 평균</b> — 목표 달성률 · ○는 100, △는 50, →는 0으로 셉니다',
+   '<b>계획대로 안 된 이유</b> — 그날 달성률이 50% 아래로 내려간 날에만 학생이 고릅니다',
+   '이유는 무엇이 자주 나오는지를 봅니다 · 계획 과다가 반복되면 계획 밀도, 무엇부터 할지 몰랐다면 우선순위, 딴짓이면 학습 환경 쪽 이야기가 됩니다']],
+ ['읽을 때 주의할 것',
+  ['숫자 아래 한 줄은 <b>그 숫자가 무슨 뜻인지</b>를 풀어 쓴 것입니다 · 학생에 대한 판단이 아닙니다',
+   '한 주 기록은 6일치입니다 · 한 주만 보고 성향을 단정하지 않는 것이 좋습니다',
+   '예상 시간은 주간 계획 실행표에서 자동으로 채워집니다 · 학생이 손대지 않으면 시간 감각이 계획 지킴과 비슷한 값을 따라갑니다']]
+];
+function helpHTML(){
+  return `<button class="x" id="hx">×</button>
+    <h3>지표 읽는 법</h3>
+    <div class="lead">각 숫자가 무엇을 재는지에 대한 설명입니다.</div>
+    <div class="hbody">` + HELP.map(g=>
+      `<h4>${g[0]}</h4><ul>${g[1].map(t=>`<li>${t}</li>`).join('')}</ul>`
+      + (g[2]?`<div class="eg">${g[2]}</div>`:'')
+    ).join('') + `</div>`;
+}
+function openHelp(){
+  $('hmodal').innerHTML=helpHTML();
+  $('hveil').classList.remove('hide');
+  $('hx').onclick=closeHelp;
+}
+const closeHelp=()=>$('hveil').classList.add('hide');
+
+/* 숫자를 말로 풀어 줍니다. 학생을 판단하지 않고 '이 숫자는 이런 뜻이다'까지만 씁니다 */
+function readFit(row){
+  const s1=num(row.fitSlot), s2=num(row.fitDay), s3=num(row.fitWeek), p=num(row.plan);
+  if(!p) return {t:'아직 계획이 없습니다', c:'thin'};
+  const r=s1/p;
+  let t, c='';
+  if(r>=.8)      t='계획한 시각에 그대로 해내고 있습니다';
+  else if(s2-s1 >= s3-s2 && s2>s1) t='시간대는 밀리지만 그날 안에는 채우고 있습니다';
+  else if(s3>s2) t='요일을 옮겨 다니며 채우고 있습니다';
+  else if(r<.4){ t='계획한 시각과 실제가 많이 어긋나 있습니다'; c='warn'; }
+  else t='계획한 시각과 실제가 조금씩 어긋납니다';
+  return {t, c};
+}
+function readDiff(d, cnt){
+  if(!cnt) return {t:'아직 비교할 항목이 없습니다', c:'thin'};
+  if(cnt<3)   return {t:'아직 판단하기에는 기록이 적습니다', c:'thin'};
+  if(d>=30)   return {t:'예상보다 훨씬 오래 걸리고 있습니다 · 계획이 빠듯하지 않은지 함께 보세요', c:'warn'};
+  if(d>=10)   return {t:'예상보다 조금씩 더 걸리는 편입니다', c:''};
+  if(d>-10)   return {t:'평균적으로는 잘 맞추고 있습니다', c:''};
+  if(d>-30)   return {t:'예상보다 조금씩 덜 걸리는 편입니다', c:''};
+  return {t:'시간을 넉넉하게 잡는 편입니다 · 하루에 더 담을 여지가 있는지 보세요', c:'warn'};
+}
+function readAcc(a, cnt){
+  if(!cnt) return {t:'아직 비교할 항목이 없습니다', c:'thin'};
+  if(cnt<3) return {t:'아직 판단하기에는 기록이 적습니다', c:'thin'};
+  const v=parseFloat(String(a).replace('%',''));
+  if(isNaN(v)) return {t:'아직 비교할 항목이 없습니다', c:'thin'};
+  const p=v<=1?v*100:v;
+  if(p>=85) return {t:'자기 속도를 잘 알고 있습니다', c:''};
+  if(p>=60) return {t:'과목이나 상황에 따라 편차가 있습니다', c:''};
+  return {t:'예측이 자주 빗나갑니다 · 어떤 항목에서 벌어지는지 보세요', c:'warn'};
+}
+const readout=r=>`<div class="readout ${r.c}">${r.t}</div>`;
+
 /* 일일학습계획표 · 읽기 전용으로 되살립니다 */
 let curDay = 'MON';
 let curView = 'w';
@@ -655,24 +795,11 @@ function render(){
       </div></div></div>`;
 
     h+=`<div class="sec"><h2>계획 지킴<span>계획 ${fmt(num(row.plan))}h 중에서 · 딱 맞춤이 가장 중요한 지표입니다</span></h2>
-      <div class="card"><div class="nums">
-        ${n('딱 맞춤',fmt(num(row.fitSlot))+'h','','계획한 그 시각에 그대로')}
+      <div class="card"><div class="nums fit">
+        ${n('딱 맞춤',fmt(num(row.fitSlot))+'h','','계획한 그 시각에 그대로','lead')}
         ${n('그날 채움',fmt(num(row.fitDay))+'h','','시간대는 달라도 그날 안에')}
         ${n('그 주 채움',fmt(num(row.fitWeek))+'h','','요일도 달라도 그 주 안에')}
-      </div></div></div>`;
-
-    if(mid(cur)){
-      const has=num(row.tsCount)>0, d=num(row.tsDiff);
-      h+=`<div class="sec"><h2>시간 감각<span>중등 · 예상한 시간과 실제 걸린 시간</span></h2>
-        <div class="card"><div class="nums">
-          ${n('예상 합계',has?fmt(num(row.tsEst))+'h':'—','','스스로 적은 예상')}
-          ${n('실제 합계',has?fmt(num(row.tsReal))+'h':'—','','실행 시간 기준')}
-          ${n('한 건당 차이',has?(d>0?'+':'')+d+'m':'—', has&&Math.abs(d)>15,
-              has?(d>0?'예상보다 더 걸림':(d<0?'예상보다 덜 걸림':'예상과 같음')):'아직 비교할 항목이 없습니다')}
-          ${n('예상 정확도',has?pct(row.tsAcc):'—','','100%에 가까울수록 자기 속도를 압니다')}
-          ${n('비교한 항목',has?row.tsCount+'개':'0개','','예상과 실행이 모두 적힌 것')}
-        </div></div></div>`;
-    }
+      </div>${readout(readFit(row))}</div></div>`;
 
     h+=`<div class="sec"><h2>주간 계획 실행표<span>읽기 전용 · 계획과 실행이 겹치는 만큼 진해집니다</span></h2>
         <div class="card">${gridHTML(row)}</div></div>`;
@@ -695,6 +822,21 @@ function render(){
         ${dayRateTable(row)}
         ${whyTable(row)}
       </div></div>`;
+
+    if(mid(cur)){
+      const cnt=num(row.tsCount), d=num(row.tsDiff);
+      h+=`<div class="sec"><h2>시간 감각<span>중등 · 예상한 시간과 실제 걸린 시간</span></h2>
+        <div class="card"><div class="nums two">
+          ${n('한 건당 차이', cnt?(d>0?'+':'')+d+'m':'—', cnt&&Math.abs(d)>=30,
+              '예상보다 얼마나 더 · 덜 걸렸나')}
+          ${n('예상 정확도', cnt?pct(row.tsAcc):'—', '',
+              '100%에 가까울수록 자기 속도를 압니다',
+              '', cnt?`${cnt}개 기준`:'0개 기준')}
+        </div>
+        ${readout(readDiff(d,cnt))}
+        ${readout(readAcc(row.tsAcc,cnt))}
+      </div></div>`;
+    }
 
     h+=`<div class="sec"><h2>일일학습계획표<span>읽기 전용 · 요일을 눌러 그날 기록을 봅니다</span></h2>
         ${dailyHTML(row)}</div>`;
@@ -746,7 +888,8 @@ const lf=(label,key,val,hint)=>`
     <div>${label?`<span class="ltag">${label}</span>`:''}${hint?`<span class="lh">${hint}</span>`:''}</div>
     <textarea data-k="${key}">${esc(val||'')}</textarea>
   </div>`;
-const n=(label,val,warn,desc)=>`<div class="n${warn?' warn':''}"><b>${val}</b><i>${label}</i>`
+const n=(label,val,warn,desc,cls,sub)=>`<div class="n${warn?' warn':''}${cls?' '+cls:''}">`
+  +`<b>${val}</b>${sub?`<span class="sub">${sub}</span>`:''}<i>${label}</i>`
   +(desc?`<u>${desc}</u>`:'')+`</div>`;
 
 function collectLog(){
@@ -788,6 +931,10 @@ async function checkUpdate(){
 }
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) checkUpdate(); });
 window.addEventListener('focus', checkUpdate);
+
+$('help').onclick=openHelp;
+$('hveil').addEventListener('click',e=>{ if(e.target===$('hveil')) closeHelp(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeHelp(); });
 
 $('refresh').onclick=async()=>{
   const b=$('refresh'); b.classList.add('spin');
