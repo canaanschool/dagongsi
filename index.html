@@ -376,7 +376,7 @@ const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZ
 const TOKEN     = 'canaan2026';
 const PIN       = '1225';
 /* 학기 첫 주의 월요일. 여기 기준으로 몇 주차인지 셉니다. */
-const APP_VER = 'v57';
+const APP_VER = 'v58';
 const SEMESTER_START = '2026-08-24';   /* 개학 8/27이 속한 주의 월요일 = 1주차 */
 
 const CATS = [
@@ -436,7 +436,7 @@ const blankDay=()=>({action:'',thanks:'',verse:'',eval:'',why:[],
   todos:Array.from({length:NTODO},blankTodo),
   tmr:Array(NTMR).fill('')});
 const blankWeek=()=>{const d={};DAYS.forEach(k=>d[k]=blankDay());
-  return {plan:{},run:{},daily:d,detail:{},name:{plan:{},run:{}}};};
+  return {plan:{},run:{},daily:d,detail:{},name:{plan:{},run:{}},rev:0};};
 let W=blankWeek();
 
 /* 저장소 : Claude 안에서는 window.storage, 그 밖에서는 브라우저 저장소를 씁니다 */
@@ -583,7 +583,7 @@ async function goWeek(w){
   catch(e){ try{ r=await store.get('sdl:w:'+w); }catch(e2){} }
   if(r&&r.value){
     try{ const d=JSON.parse(r.value);
-      W.plan=d.plan||{}; W.run=d.run||{}; W.detail=d.detail||{};
+      W.plan=d.plan||{}; W.run=d.run||{}; W.detail=d.detail||{}; W.rev=+(d.rev||0);
       W.name=d.name||{plan:{},run:{}};
       if(!W.name.plan) W.name.plan={};
       if(!W.name.run)  W.name.run={};
@@ -600,9 +600,31 @@ async function goWeek(w){
       });
     }catch(e){}
   }
+  const hadLocal=!!(r&&r.value);
   ready=true;
   paintWeek(); buildGrid(); redraw(); renderSum(); buildDayTabs(); renderDaily();
   saveProfile(); pullPromise();
+
+  /* 시트 확인은 뒤에서 합니다. 화면이 늦게 뜨지 않도록 */
+  const week0=curWeek, tick0=dirtyTick;
+  blockPush=false;
+  pullWeek(hadLocal).then(res=>{
+    if(curWeek!==week0) return;                 /* 그새 주차를 옮겼으면 그만둡니다 */
+    if(res==='err' && !hadLocal){
+      /* 이 기기에 기록이 없는데 시트도 확인하지 못했습니다.
+         이 상태로 저장이 돌면 시트의 기록을 빈 것으로 덮어씁니다 */
+      blockPush=true;
+      setStat('기록을 확인하지 못했습니다 · 새로고침해 주세요', true);
+      return;
+    }
+    if(res!=='got') return;
+    if(dirtyTick!==tick0){                      /* 그새 학생이 고쳤으면 덮지 않습니다 */
+      setStat('기기에 적은 것을 그대로 둡니다'); return;
+    }
+    saveWeek();
+    paintWeek(); buildGrid(); redraw(); renderSum(); buildDayTabs(); renderDaily();
+    setStat('시트에서 불러옴');
+  });
 }
 $('prevW').onclick=()=>goWeek(ymd(addD(new Date(curWeek+'T00:00:00'),-7)));
 $('nextW').onclick=()=>goWeek(ymd(addD(new Date(curWeek+'T00:00:00'), 7)));
@@ -1350,6 +1372,11 @@ function packDaily(){
         const t={t:String(r.t||''), st:r.st|0};
         if(String(r.p||'').trim()) t.p=String(r.p);
         ['ps','pe','est','rs','re'].forEach(f=>{ if(String(r[f]||'').trim()) t[f]=String(r[f]); });
+        /* 되살릴 때 자동 항목이 겹쳐 들어오지 않도록 정체도 함께 담습니다 */
+        if(r.src) t.src=r.src;
+        if(r.key) t.key=r.key;
+        if(r.edited)  t.edited=1;
+        if(r.tedited) t.tedited=1;
         return t;
       });
     if(rows.length) o.rows=rows;
@@ -1360,6 +1387,63 @@ function packDaily(){
     if(Object.keys(o).length) out[k]=o;
   });
   return out;
+}
+
+/* ── 시트에서 되살리기 ──
+   기록은 기기에 저장되지만, 기기를 바꾸거나 사파리 자료를 지우면 비어 버립니다.
+   그래서 앱을 열 때 시트 쪽이 더 최신이면 그것을 가져옵니다.
+   시계 대신 판 번호(rev)로 견줍니다. 기기마다 시각이 다를 수 있어서입니다 */
+const CODE1R={}; Object.keys(CODE1).forEach(k=>CODE1R[CODE1[k]]=k);
+function unpackGrid(str, into){
+  String(str||'').split('|').forEach((row,d)=>{
+    for(let i=0;i<row.length;i++){ const c=CODE1R[row[i]]; if(c) into[`${d}-${i}`]=c; }
+  });
+}
+function spreadNames(list){
+  const out={};
+  Object.keys(list||{}).forEach(d=>{
+    (list[d]||[]).forEach(r=>{ for(let i=r.s;i<r.e;i++) out[`${d}-${i}`]=r.n; });
+  });
+  return out;
+}
+function adoptSheet(g){
+  W.plan={}; W.run={}; W.detail={}; W.name={plan:{},run:{}};
+  unpackGrid(g.p, W.plan); unpackGrid(g.r, W.run);
+  W.name.plan=spreadNames(g.np); W.name.run=spreadNames(g.nr);
+  DAYS.forEach(k=>W.daily[k]=blankDay());
+  const src=g.d||{}, why=g.w||{};
+  DAYS.forEach(k=>{
+    const o=src[k]; const day=W.daily[k];
+    if(o){
+      ['verse','action','thanks','eval'].forEach(f=>{ if(o[f]) day[f]=String(o[f]); });
+      if(Array.isArray(o.tmr)) o.tmr.forEach((v,i)=>{ if(i<day.tmr.length) day.tmr[i]=String(v||''); });
+      if(Array.isArray(o.rows)) o.rows.forEach((r,i)=>{
+        if(i<day.todos.length) day.todos[i]=Object.assign(blankTodo(), r,
+          {edited:!!r.edited, tedited:!!r.tedited});
+      });
+    }
+    if(Array.isArray(why[k])) day.why=why[k].slice();
+  });
+  W.rev=+(g.rev||0);
+}
+let dirtyTick=0, blockPush=false;
+/* 돌려주는 값 : 'got' 가져옴 · 'none' 시트에도 없음 · 'err' 확인 못 함 */
+async function pullWeek(hadLocal){
+  if(!SHEET_URL || !profile) return 'none';
+  try{
+    const u=`${SHEET_URL}?what=student&pin=${encodeURIComponent(PIN)}`
+      +`&grade=${encodeURIComponent(profile.grade)}&cls=${encodeURIComponent(profile.cls||'')}`
+      +`&num=${encodeURIComponent(profile.num)}&t=${Date.now()}`;
+    const j=await (await fetch(u)).json();
+    if(!j||!j.ok||!Array.isArray(j.rows)) return 'err';
+    const row=j.rows.find(r=>String(r.week).trim()===curWeek);
+    if(!row||!row.grid) return 'none';
+    const g=row.grid;
+    if(!g.p && !g.r && !g.d) return 'none';             /* 빈 줄이면 두고 봅니다 */
+    if(hadLocal && +(g.rev||0) <= (W.rev||0)) return 'none';
+    adoptSheet(g);
+    return 'got';
+  }catch(e){ return 'err'; }
 }
 
 /* 이름 붙은 덩어리를 요일별로 모읍니다 (예: {0:[{s:0,e:6,n:'국어'}]}) */
@@ -1441,13 +1525,14 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden) flushSync
 window.addEventListener('pagehide', flushSync);
 async function push(urgent){
   if(!profile){ return; }
+  if(blockPush){ setStat('기록을 확인하지 못했습니다 · 새로고침해 주세요', true); return; }
   syncT=null;
   const body=JSON.stringify({
     token:TOKEN, week:curWeek, grade:profile.grade, cls:profile.cls||'',
     num:profile.num, name:profile.name,
     summary:summarize(),
     grid:{p:packGrid('plan'), r:packGrid('run'), w:packWhy(), d:packDaily(),
-          np:packNames('plan'), nr:packNames('run'), mid:isMid()?1:0}});
+          np:packNames('plan'), nr:packNames('run'), rev:W.rev||0, mid:isMid()?1:0}});
   /* 앱이 닫히는 중에는 보통 요청이 끊깁니다.
      sendBeacon 은 화면이 사라진 뒤에도 끝까지 보내 줍니다 */
   if(urgent && navigator.sendBeacon){
@@ -1484,7 +1569,10 @@ async function pullMeta(){
     if(j&&j.roster) ROSTER=j.roster;
   }catch(e){}
 }
-async function save(){ await saveWeek(); saveProfile(); queueSync(); }
+async function save(){
+  W.rev=(W.rev||0)+1; dirtyTick++;
+  await saveWeek(); saveProfile(); queueSync();
+}
 $('reset').onclick=()=>{
   W.plan={}; W.run={}; W.detail={}; W.name={plan:{},run:{}};
   DAYS.forEach(k=>W.daily[k]=blankDay());
