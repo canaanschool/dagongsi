@@ -237,6 +237,8 @@
   .swapwho.hide{display:none}
   body.shared .who{background:#FBF1EE;border-color:#E3C8BE}
   body.shared .who b{font-size:16px}
+  .go.danger{background:var(--c7);border-color:var(--c7);color:#fff}
+  .go.ghost{background:transparent;border:1px solid var(--line2);color:var(--ink2);margin-top:7px}
   .hintline{font-size:11.5px;color:var(--ink2);font-weight:500;margin:-4px 0 10px;line-height:1.6}
   .whybox{margin-top:15px;padding:11px 12px;border:1px solid #E8D6CE;border-radius:11px;
     background:#FDF5F2}
@@ -386,7 +388,7 @@ const PIN       = '1225';   /* 시트에서 기록을 불러올 때만 씁니다
    그 기기는 이름을 기억하지 않고, 열 때마다 누구인지 묻습니다 */
 const SHARED = /[?&]shared\b/.test(location.search);
 /* 학기 첫 주의 월요일. 여기 기준으로 몇 주차인지 셉니다. */
-const APP_VER = '1.3';
+const APP_VER = '1.5';
 const SEMESTER_START = '2026-08-24';   /* 개학 8/27이 속한 주의 월요일 = 1주차 */
 
 const CATS = [
@@ -548,7 +550,9 @@ async function switchProfile(np){
   profile=np; saveProfile(); paintWho();
   $('veil').classList.add('hide');
   if(!same){ ready=false; await goWeek(curWeek); }
-  queueSync();
+  /* 여기서 곧바로 보내지 않습니다.
+     시트를 아직 확인하기 전이라, 빈 화면이 기존 기록을 덮어쓸 수 있습니다.
+     학생이 무엇이든 고치면 그때 save() 가 전송을 예약합니다 */
 }
 function paintWho(){
   if(!profile) return;
@@ -1540,9 +1544,24 @@ function flushSync(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden) flushSync(); });
 window.addEventListener('pagehide', flushSync);
+/* 이 주에 적힌 것이 하나라도 있는지 */
+function hasAnything(){
+  if(Object.keys(W.plan).length || Object.keys(W.run).length) return true;
+  return DAYS.some(k=>{
+    const d=W.daily[k];
+    return (d.todos||[]).some(t=>String(t.t||'').trim())
+        || ['verse','action','thanks','eval'].some(f=>String(d[f]||'').trim())
+        || (d.tmr||[]).some(v=>String(v||'').trim())
+        || (d.why||[]).length;
+  });
+}
 async function push(urgent){
   if(!profile){ return; }
   if(blockPush){ setStat('기록을 확인하지 못했습니다 · 새로고침해 주세요', true); return; }
+  /* 손댄 적 없는 빈 주는 보내지 않습니다.
+     다른 기기(사파리 ↔ 홈 화면 앱)에서 적어 둔 기록을 덮어쓰지 않기 위해서입니다.
+     '이 주 전부 지우기'로 비운 경우에는 rev 가 올라가 있어 정상적으로 전송됩니다 */
+  if(!hasAnything() && !(W.rev||0)){ setStat(''); return; }
   syncT=null;
   const body=JSON.stringify({
     token:TOKEN, week:curWeek, grade:profile.grade, cls:profile.cls||'',
@@ -1590,10 +1609,32 @@ async function save(){
   W.rev=(W.rev||0)+1; dirtyTick++;
   await saveWeek(); saveProfile(); queueSync();
 }
+/* 되돌릴 수 없는 일이라 한 번 더 묻습니다 */
 $('reset').onclick=()=>{
-  W.plan={}; W.run={}; W.detail={}; W.name={plan:{},run:{}};
-  DAYS.forEach(k=>W.daily[k]=blankDay());
-  redraw(); drawNow(); renderSum(); buildDayTabs(); renderDaily(); save();
+  const filled=Object.keys(W.plan).length+Object.keys(W.run).length;
+  const written=DAYS.filter(k=>(W.daily[k].todos||[]).some(t=>String(t.t||'').trim())).length;
+  const a=new Date(curWeek+'T00:00:00'), b2=addD(a,5), no=weekNo(curWeek);
+  const label=`${no>=1?no+'주차':''} ${a.getMonth()+1}/${a.getDate()} ~ ${b2.getMonth()+1}/${b2.getDate()}`.trim();
+  $('modal').classList.remove('help');
+  $('veil').classList.remove('hide');
+  $('modal').innerHTML=`
+    <button class="x" id="rx">✕</button>
+    <h3>이 주를 전부 지울까요</h3>
+    <p>${esc(label)}에 적은 것이 모두 없어집니다.</p>
+    <p class="hintline">칠한 칸 ${filled}개${written?` · 일일학습계획표 ${written}일치`:''}<br>
+      한 번 지우면 되돌릴 수 없습니다. 다른 주는 그대로 남습니다.</p>
+    <button class="go danger" id="rgo">전부 지우기</button>
+    <button class="go ghost" id="rno">그만두기</button>
+    <div class="err"></div>`;
+  const close=()=>$('veil').classList.add('hide');
+  $('rx').onclick=close;
+  $('rno').onclick=close;
+  $('rgo').onclick=()=>{
+    W.plan={}; W.run={}; W.detail={}; W.name={plan:{},run:{}};
+    DAYS.forEach(k=>W.daily[k]=blankDay());
+    close();
+    redraw(); drawNow(); renderSum(); buildDayTabs(); renderDaily(); save();
+  };
 };
 
 /* ══ 최신 버전 확인 ══
