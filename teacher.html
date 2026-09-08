@@ -158,13 +158,9 @@
   .whynone{font-size:11.5px;color:var(--ink2);font-weight:500}
   .bnr{background:var(--card);border:1px solid var(--line);border-radius:14px;
     padding:14px 16px;margin:0 0 18px}
-  .bnr .bhd{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-  .bnr .bhd b{font-size:12.5px;font-weight:800;color:var(--ink)}
-  .bnr .bhd span{font-size:11px;color:var(--ink2);font-weight:500}
   .bnr .brow{display:flex;gap:10px;align-items:flex-start;margin-bottom:9px}
   .bnr .btag{flex:0 0 auto;font-size:11px;font-weight:800;color:#fff;border-radius:7px;
     padding:5px 9px;margin-top:3px;white-space:nowrap}
-  .bnr .btag.p{background:var(--c7)}
   .bnr .btag.c{background:#5E7F6E}
   .bnr textarea{flex:1;font:inherit;font-size:12.5px;color:var(--ink);line-height:1.6;
     border:1px solid var(--line);border-radius:9px;padding:8px 10px;resize:vertical;
@@ -279,7 +275,7 @@
 
 <script>
 const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZDNxPIpfp8DsOm0s4PD3dITCl-6z-DEfL7NNGUvty7IJ6s_GQ/exec';
-const APP_VER   = '1.6';
+const APP_VER   = '1.7';
 const SEMESTER_START = '2026-08-24';
 
 const CATS = [
@@ -846,15 +842,11 @@ function render(){
   }else{
     h+=`<div class="vtabs"><button class="vtab${curView==='w'?' on':''}" data-v="w">주간 계획 실행표</button><button class="vtab${curView==='d'?' on':''}" data-v="d">일일학습계획표</button></div>`;
 
-    /* 학생 앱 위쪽에 그대로 뜨는 두 줄 · 여기서 바로 씁니다 */
-    const LB=(row&&row.log)||{};
+    /* 응원 한마디 · 학생 앱 위쪽에 그대로 뜹니다
+       (약속은 상담일지의 «상담 후 변화 및 도움 주어야 할 것» 칸에서 씁니다) */
     h+=`<div class="bnr">
-      <div class="bhd"><b>학생에게 보이는 말</b>
-        <span>이 두 줄만 학생 앱에 이번 주 내내 표시됩니다</span></div>
-      <div class="brow"><span class="btag p">이번 주 약속</span>
-        <textarea data-b="after" placeholder="이번 주에 지킬 것 한 가지">${esc(LB.after||'')}</textarea></div>
       <div class="brow"><span class="btag c">응원 한마디</span>
-        <textarea data-b="cheer" placeholder="따뜻한 말 한마디">${esc((row&&row.cheer)||'')}</textarea></div>
+        <textarea data-b="cheer" placeholder="따뜻한 말 한마디 · 학생 앱에 이번 주 내내 표시됩니다">${esc((row&&row.cheer)||'')}</textarea></div>
       <div class="bfoot"><button class="save" id="bsave">저장</button>
         <span class="hint" id="bhint"></span></div>
     </div>`;
@@ -944,7 +936,7 @@ function render(){
         ${lf('','spent',L.spent,'소요시간 점검')}
         ${lf('실력의 정직','subject',L.subject,'어려운 과목 진행상황')}
         ${lf('','care',L.care,'관리 (체력, 심리)')}
-        ${lf('상담 후 변화 및 도움 주어야 할 것','after',L.after,'맨 위 «이번 주 약속»과 같은 칸입니다')}
+        ${lf('상담 후 변화 및 도움 주어야 할 것','after',L.after,'학생 앱에 «이번 주 약속»으로 표시됩니다')}
         <div class="pmrow"><button class="save" id="pms">저장</button>
           <span class="hint" id="pmh">${row&&row.logAt?'마지막 기록 '+esc(row.logAt):''}</span>
           <button class="btn" id="prt" style="margin-left:auto">이 회차 인쇄 · PDF</button>
@@ -961,13 +953,7 @@ function render(){
   });
   if($('pms')) $('pms').onclick=saveLog;
   if($('bsave')) $('bsave').onclick=()=>{ $('bhint').textContent='저장 중'; saveLog(); };
-  /* 약속 칸이 맨 위와 상담일지 두 곳에 있습니다. 한쪽을 고치면 다른 쪽도 따라옵니다 */
-  const bA=document.querySelector('.bnr textarea[data-b="after"]');
-  const lA=document.querySelector('.log textarea[data-k="after"]');
-  if(bA&&lA){
-    bA.addEventListener('input',()=>{ lA.value=bA.value; });
-    lA.addEventListener('input',()=>{ bA.value=lA.value; });
-  }
+
   if($('prt')) $('prt').onclick=()=>printLog(false);
   if($('prtAll')) $('prtAll').onclick=()=>printLog(true);
 }
@@ -983,9 +969,8 @@ const n=(label,val,warn,desc,cls,sub)=>`<div class="n${warn?' warn':''}${cls?' '
 function collectLog(){
   const log={};
   document.querySelectorAll('.log textarea').forEach(t=>log[t.dataset.k]=t.value.trim());
-  /* 맨 위 배너에서 고친 것이 있으면 그쪽을 따릅니다 */
+  /* 응원은 맨 위 배너에서 씁니다 */
   document.querySelectorAll('.bnr textarea').forEach(t=>{
-    if(t.dataset.b==='after') log.after=t.value.trim();
     if(t.dataset.b==='cheer') log.cheer=t.value.trim();
   });
   if(log.cheer===undefined) log.cheer=(rows.find(r=>r.week===curWeek)||{}).cheer||'';
