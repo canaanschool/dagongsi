@@ -156,6 +156,22 @@
   .whyday{font-size:11.5px;color:var(--ink2);font-weight:500;margin-top:9px;line-height:1.7}
   .whyday b{color:var(--ink);font-weight:800;margin-right:4px}
   .whynone{font-size:11.5px;color:var(--ink2);font-weight:500}
+  .bnr{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:14px 16px;margin:0 0 18px}
+  .bnr .bhd{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .bnr .bhd b{font-size:12.5px;font-weight:800;color:var(--ink)}
+  .bnr .bhd span{font-size:11px;color:var(--ink2);font-weight:500}
+  .bnr .brow{display:flex;gap:10px;align-items:flex-start;margin-bottom:9px}
+  .bnr .btag{flex:0 0 auto;font-size:11px;font-weight:800;color:#fff;border-radius:7px;
+    padding:5px 9px;margin-top:3px;white-space:nowrap}
+  .bnr .btag.p{background:var(--c7)}
+  .bnr .btag.c{background:#5E7F6E}
+  .bnr textarea{flex:1;font:inherit;font-size:12.5px;color:var(--ink);line-height:1.6;
+    border:1px solid var(--line);border-radius:9px;padding:8px 10px;resize:vertical;
+    min-height:42px;background:var(--soft)}
+  .bnr textarea:focus{outline:none;border-color:var(--line2);background:var(--card)}
+  .bnr .brow .bh{font-size:10.5px;color:var(--ink2);font-weight:500;margin-top:5px}
+  .bnr .bfoot{display:flex;align-items:center;gap:10px;margin-top:2px}
   .vtabs{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 16px}
   .vtab{font:inherit;font-size:13px;font-weight:800;letter-spacing:-.3px;color:var(--ink2);
     cursor:pointer;padding:9px 18px;border:1px solid var(--line);border-radius:999px;
@@ -263,7 +279,7 @@
 
 <script>
 const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZDNxPIpfp8DsOm0s4PD3dITCl-6z-DEfL7NNGUvty7IJ6s_GQ/exec';
-const APP_VER   = '1.0';
+const APP_VER   = '1.6';
 const SEMESTER_START = '2026-08-24';
 
 const CATS = [
@@ -592,6 +608,53 @@ function whyTable(row){
     ${bars}<div class="whyday">${perDay.join('')}</div></div>`;
 }
 
+/* ── 아직 오지 않은 시간은 세지 않습니다 ──
+   주 중간에 보면 남은 날들이 통째로 '못 지킨 것'으로 잡혀
+   숫자가 실제보다 훨씬 나쁘게 나오던 문제를 바로잡습니다.
+   지난 주를 볼 때는 한 주 전체가 대상이 됩니다 */
+function progressOf(week){
+  const mon=new Date(week+'T00:00:00');
+  const end=addD(mon,6);
+  const now=new Date();
+  if(now>=end) return null;                 /* 이미 끝난 주 · 전체를 셉니다 */
+  if(now<mon)  return {day:-1, slot:0};     /* 아직 오지 않은 주 */
+  const day=Math.floor((new Date(now.getFullYear(),now.getMonth(),now.getDate())-mon)/86400000);
+  const mins=now.getHours()*60+now.getMinutes()-H0*60;
+  return {day, slot:Math.max(0,Math.min(NS,Math.floor(mins/30)))};
+}
+/* 지금까지 지나간 칸만 남깁니다 */
+function upTo(g, pr){
+  if(!pr) return g;
+  const out={};
+  Object.keys(g||{}).forEach(k=>{
+    const [d,i]=k.split('-').map(Number);
+    if(d<pr.day || (d===pr.day && i<pr.slot)) out[k]=g[k];
+  });
+  return out;
+}
+function tallyH(g){ return Object.keys(g||{}).length/2; }
+/* 진행분 기준으로 계획 지킴과 채운 시간을 다시 셉니다 */
+function liveStats(row){
+  const pr=progressOf(row.week);
+  if(!pr) return null;
+  const P=unpack(row.grid&&row.grid.p), R=unpack(row.grid&&row.grid.r);
+  NP=spreadNames(row.grid&&row.grid.np); NR=spreadNames(row.grid&&row.grid.nr);
+  const Pc=upTo(P,pr), Rc=upTo(R,pr);
+  let slot=0;
+  for(let d=0; d<6; d++) matchRuns(Pc,Rc,d).forEach(r=>slot+=r.e-r.s);
+  const cnt=(g,pick)=>{ const m={};
+    Object.keys(g).forEach(k=>{ const [d,i]=k.split('-').map(Number);
+      const key=pick==='day'?`${d}|${g[k]}`:g[k]; m[key]=(m[key]||0)+1; });
+    return m; };
+  const mm=(a,b)=>{ let t=0; Object.keys(a).forEach(k=>t+=Math.min(a[k], b[k]||0)); return t; };
+  const day =mm(cnt(Pc,'day'), cnt(Rc,'day'));
+  const week=mm(cnt(Pc,'w'),   cnt(Rc,'w'));
+  /* 지나간 만큼의 24시간 (00~06시 자동 잠·휴식 포함) */
+  const passed=(pr.day*NS + pr.slot)/2 + (pr.day+1)*6;
+  return { plan:tallyH(Pc), fitSlot:slot/2, fitDay:day/2, fitWeek:week/2,
+           filled:tallyH(Rc)+(pr.day+1)*6, cap:passed, live:true };
+}
+
 /* 지표 설명 · 무엇을 재는 숫자인지까지만 씁니다.
    '그래서 이렇게 하라'는 상담을 해 보고 채워 나갑니다 */
 const HELP = [
@@ -783,23 +846,40 @@ function render(){
   }else{
     h+=`<div class="vtabs"><button class="vtab${curView==='w'?' on':''}" data-v="w">주간 계획 실행표</button><button class="vtab${curView==='d'?' on':''}" data-v="d">일일학습계획표</button></div>`;
 
+    /* 학생 앱 위쪽에 그대로 뜨는 두 줄 · 여기서 바로 씁니다 */
+    const LB=(row&&row.log)||{};
+    h+=`<div class="bnr">
+      <div class="bhd"><b>학생에게 보이는 말</b>
+        <span>이 두 줄만 학생 앱에 이번 주 내내 표시됩니다</span></div>
+      <div class="brow"><span class="btag p">이번 주 약속</span>
+        <textarea data-b="after" placeholder="이번 주에 지킬 것 한 가지">${esc(LB.after||'')}</textarea></div>
+      <div class="brow"><span class="btag c">응원 한마디</span>
+        <textarea data-b="cheer" placeholder="따뜻한 말 한마디">${esc((row&&row.cheer)||'')}</textarea></div>
+      <div class="bfoot"><button class="save" id="bsave">저장</button>
+        <span class="hint" id="bhint"></span></div>
+    </div>`;
+
     if(curView==='w'){
-    const filled=num(row.filled);
+    const LV=liveStats(row);
+    const V=LV||row;
+    const cap=LV?LV.cap:144;
+    const filled=num(V.filled);
     h+=`<div class="sec"><h2>시간의 정직<span>주간 계획 실행표에서</span></h2>
       <div class="card"><div class="nums">
         ${n('계획',fmt(num(row.plan))+'h')}
         ${n('공부',fmt(num(row.study))+'h')}
         ${n('잠 · 휴식',fmt(num(row.rest))+'h')}
         ${n('땜빵',fmt(num(row.fill))+'h','','저녁에 미리 계획해 두는 시간')}
-        ${n('채운 시간',fmt(filled)+' / 144h', filled<100,'6일 × 24시간 중')}
+        ${n('채운 시간',fmt(filled)+' / '+fmt(cap)+'h', filled<cap*0.7,
+            LV?'지금까지 지나간 시간 중':'6일 × 24시간 중')}
       </div></div></div>`;
 
-    h+=`<div class="sec"><h2>계획 지킴<span>계획 ${fmt(num(row.plan))}h 중에서 · 딱 맞춤이 가장 중요한 지표입니다</span></h2>
+    h+=`<div class="sec"><h2>계획 지킴<span>계획 ${fmt(num(V.plan))}h 중에서 · 딱 맞춤이 가장 중요한 지표입니다</span></h2>
       <div class="card"><div class="nums fit">
-        ${n('딱 맞춤',fmt(num(row.fitSlot))+'h','','계획한 그 시각에 그대로','lead')}
-        ${n('그날 채움',fmt(num(row.fitDay))+'h','','시간대는 달라도 그날 안에')}
-        ${n('그 주 채움',fmt(num(row.fitWeek))+'h','','요일도 달라도 그 주 안에')}
-      </div>${readout(readFit(row))}</div></div>`;
+        ${n('딱 맞춤',fmt(num(V.fitSlot))+'h','','계획한 그 시각에 그대로','lead')}
+        ${n('그날 채움',fmt(num(V.fitDay))+'h','','시간대는 달라도 그날 안에')}
+        ${n('그 주 채움',fmt(num(V.fitWeek))+'h','','요일도 달라도 그 주 안에')}
+      </div>${readout(readFit(V))}</div></div>`;
 
     h+=`<div class="sec"><h2>주간 계획 실행표<span>읽기 전용 · 계획과 실행이 겹치는 만큼 진해집니다</span></h2>
         <div class="card">${gridHTML(row)}</div></div>`;
@@ -864,7 +944,7 @@ function render(){
         ${lf('','spent',L.spent,'소요시간 점검')}
         ${lf('실력의 정직','subject',L.subject,'어려운 과목 진행상황')}
         ${lf('','care',L.care,'관리 (체력, 심리)')}
-        ${lf('상담 후 변화 및 도움 주어야 할 것','after',L.after,'학생 앱에 이번 주 내내 표시됩니다')}
+        ${lf('상담 후 변화 및 도움 주어야 할 것','after',L.after,'맨 위 «이번 주 약속»과 같은 칸입니다')}
         <div class="pmrow"><button class="save" id="pms">저장</button>
           <span class="hint" id="pmh">${row&&row.logAt?'마지막 기록 '+esc(row.logAt):''}</span>
           <button class="btn" id="prt" style="margin-left:auto">이 회차 인쇄 · PDF</button>
@@ -880,6 +960,14 @@ function render(){
     curView=b.dataset.v; render(); window.scrollTo(0,0);
   });
   if($('pms')) $('pms').onclick=saveLog;
+  if($('bsave')) $('bsave').onclick=()=>{ $('bhint').textContent='저장 중'; saveLog(); };
+  /* 약속 칸이 맨 위와 상담일지 두 곳에 있습니다. 한쪽을 고치면 다른 쪽도 따라옵니다 */
+  const bA=document.querySelector('.bnr textarea[data-b="after"]');
+  const lA=document.querySelector('.log textarea[data-k="after"]');
+  if(bA&&lA){
+    bA.addEventListener('input',()=>{ lA.value=bA.value; });
+    lA.addEventListener('input',()=>{ bA.value=lA.value; });
+  }
   if($('prt')) $('prt').onclick=()=>printLog(false);
   if($('prtAll')) $('prtAll').onclick=()=>printLog(true);
 }
@@ -895,6 +983,12 @@ const n=(label,val,warn,desc,cls,sub)=>`<div class="n${warn?' warn':''}${cls?' '
 function collectLog(){
   const log={};
   document.querySelectorAll('.log textarea').forEach(t=>log[t.dataset.k]=t.value.trim());
+  /* 맨 위 배너에서 고친 것이 있으면 그쪽을 따릅니다 */
+  document.querySelectorAll('.bnr textarea').forEach(t=>{
+    if(t.dataset.b==='after') log.after=t.value.trim();
+    if(t.dataset.b==='cheer') log.cheer=t.value.trim();
+  });
+  if(log.cheer===undefined) log.cheer=(rows.find(r=>r.week===curWeek)||{}).cheer||'';
   log.at=new Date().toISOString().slice(0,10);
   return log;
 }
@@ -911,7 +1005,11 @@ async function saveLog(){
       $('pmh').textContent='저장했습니다';
       let r=rows.find(x=>x.week===curWeek);
       if(!r){ r={week:curWeek, grid:{}}; rows.push(r); }
-      r.log=log; r.logAt=log.at;
+      r.log=log; r.logAt=log.at; r.cheer=log.cheer||'';
+      const la=document.querySelector('.log textarea[data-k="after"]');
+      if(la) la.value=log.after||'';
+      if($('bhint')) $('bhint').textContent='저장했습니다';
+      setTimeout(()=>{ if($('bhint')) $('bhint').textContent=''; },2500);
       setTimeout(()=>{ if($('pmh')) $('pmh').textContent=''; },2500);
     }else $('pmh').textContent='저장하지 못했습니다';
   }catch(e){ $('pmh').textContent='연결에 실패했습니다'; }
