@@ -71,7 +71,11 @@
   .who b{font-size:13px;font-weight:800}
   .who span{font-size:12px;color:var(--ink2);font-weight:700}
   .who{cursor:default;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+  .who{position:relative;overflow:hidden}
   .who.press{background:var(--soft)}
+  .who::after{content:'';position:absolute;left:0;bottom:0;height:2.5px;width:0;
+    background:var(--c7);border-radius:2px}
+  .who.press::after{width:100%;transition:width 1s linear}
   .stat{font-size:11.5px;font-weight:700;color:var(--ink2);min-width:60px;text-align:right}
   .rf{border:1px solid var(--line2);background:var(--card);border-radius:50%;
     width:27px;height:27px;cursor:pointer;font-size:13px;color:var(--ink2);line-height:1;
@@ -395,7 +399,7 @@ const PIN       = '1225';   /* 시트에서 기록을 불러올 때만 씁니다
    그 기기는 이름을 기억하지 않고, 열 때마다 누구인지 묻습니다 */
 const SHARED = /[?&]shared\b/.test(location.search);
 /* 학기 첫 주의 월요일. 여기 기준으로 몇 주차인지 셉니다. */
-const APP_VER = '1.7';
+const APP_VER = '1.8';
 const SEMESTER_START = '2026-08-24';   /* 개학 8/27이 속한 주의 월요일 = 1주차 */
 
 const CATS = [
@@ -573,14 +577,19 @@ if(SHARED){
   const b=$('swapWho');
   if(b){ b.classList.remove('hide'); b.onclick=()=>{ flushSync(); askProfile(true); }; }
 }
-/* 이름을 3초 길게 누르면 정보 수정 */
+/* 이름을 1초 길게 누르면 정보 수정.
+   손가락이 조금 흔들리는 것으로는 취소되지 않습니다 */
 (function(){
-  const el=$('whoName').parentElement; let t=null;
-  const start=()=>{ el.classList.add('press');
-    t=setTimeout(()=>{ el.classList.remove('press'); askProfile(true); },3000); };
-  const stop=()=>{ el.classList.remove('press'); clearTimeout(t); };
+  const el=$('whoName').parentElement; let t=null, at=null;
+  const start=e=>{ at={x:e.clientX, y:e.clientY};
+    el.classList.add('press');
+    t=setTimeout(()=>{ el.classList.remove('press'); at=null; askProfile(true); },1000); };
+  const stop=()=>{ el.classList.remove('press'); clearTimeout(t); at=null; };
+  const move=e=>{ if(!at) return;
+    if(Math.abs(e.clientX-at.x)>10 || Math.abs(e.clientY-at.y)>10) stop(); };
   el.addEventListener('pointerdown',start);
-  ['pointerup','pointerleave','pointercancel','pointermove'].forEach(v=>el.addEventListener(v,stop));
+  ['pointerup','pointerleave','pointercancel'].forEach(v=>el.addEventListener(v,stop));
+  el.addEventListener('pointermove',move);
   el.addEventListener('contextmenu',e=>e.preventDefault());
 })();
 
