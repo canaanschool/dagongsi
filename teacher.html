@@ -97,6 +97,7 @@
   .tr.p{height:26px;border-bottom:1px solid var(--line)}
   .tr.r{height:32px;border-bottom:1.5px solid var(--line2)}
   .sg{position:absolute;top:0;bottom:0;border-right:1px solid rgba(255,255,255,.5)}
+  .lb.tiny{font-size:8px;letter-spacing:-.7px}
   .lb{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;
     font-size:10px;font-weight:800;color:#fff;overflow:hidden;white-space:nowrap;z-index:2;
     text-shadow:0 1px 2px rgba(0,0,0,.22)}
@@ -275,7 +276,7 @@
 
 <script>
 const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZDNxPIpfp8DsOm0s4PD3dITCl-6z-DEfL7NNGUvty7IJ6s_GQ/exec';
-const APP_VER   = '1.7';
+const APP_VER   = '1.9';
 const SEMESTER_START = '2026-08-24';
 
 const CATS = [
@@ -433,8 +434,9 @@ function trackHTML(g,fits){
     return `<div class="sg" style="${pc(r)};background:${shade(c.c,r.nm)}${fade?FADE:''}"></div>`;};
   g.forEach(r=>h+=seg(r,true));
   fits.forEach(r=>h+=seg(r,false));
-  g.forEach(r=>{ const c=BYS[r.k]; if(!c||r.e-r.s<2) return;
-    h+=`<div class="lb" style="${pc(r)}">${esc(r.nm||c.n)}</div>`; });
+  g.forEach(r=>{ const c=BYS[r.k]; if(!c) return;
+    const cls=(r.e-r.s)<2 ? 'lb tiny' : 'lb';
+    h+=`<div class="${cls}" style="${pc(r)}">${esc(r.nm||c.n)}</div>`; });
   return h;
 }
 function gridHTML(row){
