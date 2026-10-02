@@ -298,7 +298,7 @@
 
 <script>
 const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZDNxPIpfp8DsOm0s4PD3dITCl-6z-DEfL7NNGUvty7IJ6s_GQ/exec';
-const APP_VER   = '2.2';
+const APP_VER   = '2.3';
 const SEMESTER_START = '2026-08-24';
 
 const CATS = [
@@ -324,6 +324,13 @@ const num=v=>{const n=parseFloat(v); return isNaN(n)?0:n;};
 const fmt=v=>(v%1?v.toFixed(1):String(v));
 /* 시트가 퍼센트를 소수로 바꿔 저장하는 경우가 있어 양쪽 다 받아 줍니다 */
 function mid(stu){ return stu && +stu.grade>=7; }
+/* 시트는 '75%' 를 0.75 라는 숫자로 저장합니다. 0~100 으로 돌려 놓습니다 */
+const pnum=v=>{
+  if(v===''||v===null||v===undefined) return null;
+  const n=parseFloat(String(v).replace('%',''));
+  if(isNaN(n)) return null;
+  return (typeof v==='string' && v.indexOf('%')>=0) ? n : (n<=1 ? n*100 : n);
+};
 const pct=v=>{
   if(v===''||v===null||v===undefined) return '—';
   if(typeof v==='string' && v.indexOf('%')>=0) return v.trim();
@@ -833,8 +840,8 @@ function monthStats(ms){
     study+=num(r.study); rest+=num(r.rest);
     planH+=num(V.plan); slot+=num(V.fitSlot); filled+=num(V.filled);
     const dn=num(r.days); days+=dn;
-    const rp=parseFloat(String(r.rate||'').replace('%',''));
-    if(!isNaN(rp) && dn){ rateSum+=rp*dn; rateN+=dn; }   /* 쓴 날 수로 가중 */
+    const rp=pnum(r.rate);
+    if(rp!==null && dn){ rateSum+=rp*dn; rateN+=dn; }    /* 쓴 날 수로 가중 */
     const c=num(r.tsCount);
     if(c){ tsE+=num(r.tsEst); tsR+=num(r.tsReal); tsN+=c;
            tsAbs+=Math.abs(num(r.tsDiff))*c; }
@@ -916,8 +923,7 @@ function counselHTML(row){
   <div class="sec"><h2>② 노력의 정직<span>그 시간에 최선을 다하고 있는가</span></h2>
     <div class="card">
       ${r3('목표 달성률', S.rate===null?'—':S.rate+'%', `계획 대비 실천 · 쓴 날로 가중 평균`,
-          weekTrend(ms, r=>{ const v=parseFloat(String(r.rate||'').replace('%','')); 
-            return isNaN(v)?null:Math.round(v)+'%'; }))}
+          weekTrend(ms, r=>{ const v=pnum(r.rate); return v===null?null:Math.round(v)+'%'; }))}
       ${r3('소요 시간 인식', S.tsAcc===null?'—':S.tsAcc+'%',
           S.tsN? `예상 정확도 · 한 건당 ${(S.tsDiff>0?'+':'')+S.tsDiff}m · ${S.tsN}개 기준`
                : '중등만 · 예상과 실행이 모두 적힌 항목이 없습니다')}
