@@ -169,6 +169,17 @@
   .bnr textarea:focus{outline:none;border-color:var(--line2);background:var(--card)}
   .bnr .brow .bh{font-size:10.5px;color:var(--ink2);font-weight:500;margin-top:5px}
   .bnr .bfoot{display:flex;align-items:center;gap:10px;margin-top:2px}
+  .c3{display:flex;align-items:baseline;gap:12px;padding:11px 2px;
+    border-bottom:1px solid var(--line)}
+  .c3:last-child{border-bottom:0}
+  .c3 .cl{width:150px;flex:none;font-size:12.5px;font-weight:800;color:var(--ink)}
+  .c3 .cv{font-size:19px;font-weight:800;color:var(--ink);letter-spacing:-.4px}
+  .c3 .cn{font-size:11.5px;color:var(--ink2);font-weight:500;margin-left:auto;text-align:right}
+  .csub{font-size:12px;font-weight:800;color:var(--c7);margin:2px 0 6px}
+  .csub em{font-style:normal;font-weight:500;color:var(--ink2);margin-left:5px;font-size:11px}
+  .cnone{font-size:12px;color:var(--ink2);font-weight:500;padding:10px 2px;line-height:1.7}
+  .cask{margin-top:12px;padding:10px 12px;border-radius:9px;background:var(--soft);
+    font-size:11.5px;color:var(--ink2);font-weight:600;line-height:1.7}
   .vtabs{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 16px}
   .vtab{font:inherit;font-size:13px;font-weight:800;letter-spacing:-.3px;color:var(--ink2);
     cursor:pointer;padding:9px 18px;border:1px solid var(--line);border-radius:999px;
@@ -276,7 +287,7 @@
 
 <script>
 const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZDNxPIpfp8DsOm0s4PD3dITCl-6z-DEfL7NNGUvty7IJ6s_GQ/exec';
-const APP_VER   = '1.9';
+const APP_VER   = '2.0';
 const SEMESTER_START = '2026-08-24';
 
 const CATS = [
@@ -738,6 +749,82 @@ function readAcc(a, cnt){
 }
 const readout=r=>`<div class="readout ${r.c}">${r.t}</div>`;
 
+/* ── 상담 참고 ──
+   종이 양식 «3.3 정직으로 돌아본 학습» 의 차례를 그대로 따릅니다.
+   앱에서 나오는 숫자만 채워 두고, 판단은 상담하며 교사가 합니다 */
+const hm=h=>{ const m=Math.round(h*60); return `${Math.floor(m/60)}시간 ${m%60}분`; };
+
+/* 이름 붙인 공부 칸을 과목별로 모읍니다 (실력의 정직 쪽 재료) */
+function subjectTally(row){
+  const P=unpack(row.grid&&row.grid.p), R=unpack(row.grid&&row.grid.r);
+  const NPx=spreadNames(row.grid&&row.grid.np), NRx=spreadNames(row.grid&&row.grid.nr);
+  const out={};
+  const add=(g,nm,key)=>{
+    Object.keys(g||{}).forEach(k=>{
+      if(g[k]!=='T') return;        /* 격자는 한 글자 기호로 들어옵니다 (T = 공부) */
+      const n2=(nm[k]||'').trim(); if(!n2) return;
+      out[n2]=out[n2]||{plan:0,run:0};
+      out[n2][key]+=0.5;
+    });
+  };
+  add(P,NPx,'plan'); add(R,NRx,'run');
+  return Object.entries(out).sort((a,b)=>b[1].run-a[1].run);
+}
+
+function counselHTML(row){
+  const LV=liveStats(row), V=LV||row;
+  const days=num(row.days)||0;
+  const study=num(row.study), rest=num(row.rest), play=0;
+  const perDay = days? study/days : study/6;
+  const sleepDay = rest/6;
+  const planH=num(V.plan), slot=num(V.fitSlot);
+  const slotPct = planH? Math.round(slot/planH*100) : 0;
+  const cnt=num(row.tsCount), tsd=num(row.tsDiff);
+  const subs=subjectTally(row);
+
+  const r3=(label,val,note)=>`<div class="c3"><span class="cl">${label}</span>
+    <span class="cv">${val}</span>${note?`<span class="cn">${note}</span>`:''}</div>`;
+
+  let subHTML;
+  if(!subs.length){
+    subHTML=`<div class="cnone">공부 칸에 과목 이름을 붙이면 여기에 과목별 시간이 모입니다 ·
+      지금은 붙은 것이 없습니다</div>`;
+  }else{
+    subHTML=subs.map(([nm,v])=>
+      `<div class="c3"><span class="cl">${esc(nm)}</span>
+        <span class="cv">${hm(v.run)}</span>
+        <span class="cn">계획 ${hm(v.plan)}</span></div>`).join('');
+  }
+
+  return `
+  <div class="sec"><h2>① 시간의 정직<span>하나님이 주신 24시간을 정직하게 쓰고 있는가</span></h2>
+    <div class="card">
+      ${r3('하루 순공부 시간', hm(perDay), `한 주 ${fmt(study)}h · ${days||6}일 기준`)}
+      ${r3('수면 · 생활 균형', hm(sleepDay)+' 수면', `한 주 ${fmt(rest)}h`)}
+      ${r3('시간 배분 계획', fmt(planH)+'h 계획', `채운 시간 ${fmt(num(V.filled))}h`)}
+      ${readout(readFit(V))}
+    </div></div>
+
+  <div class="sec"><h2>② 노력의 정직<span>그 시간에 최선을 다하고 있는가</span></h2>
+    <div class="card">
+      ${r3('목표 달성률', pct(row.rate), `계획 대비 실천 · ${days}일 작성`)}
+      ${r3('소요 시간 인식', cnt?pct(row.tsAcc):'—',
+            cnt?`예상 정확도 · 한 건당 ${(tsd>0?'+':'')+tsd}m · ${cnt}개 기준`
+               :'중등만 · 예상과 실행이 모두 적힌 항목이 없습니다')}
+      ${r3('집중도 · 성실도', slotPct+'%',
+            `딱 맞춤 ${fmt(slot)}h / 계획 ${fmt(planH)}h`)}
+      ${cnt?readout(readAcc(row.tsAcc,cnt)):''}
+    </div></div>
+
+  <div class="sec"><h2>③ 실력의 정직<span>내 위치를 정직하게 진단하고 바르게 나아가는가</span></h2>
+    <div class="card">
+      <div class="csub">과목별 공부 시간 <em>실행 기준</em></div>
+      ${subHTML}
+      <div class="cask">좋아하는 과목 · 어려워하는 과목 · 현재 위치는
+        상담하며 직접 들어 보고 아래 상담일지에 적습니다</div>
+    </div></div>`;
+}
+
 /* 일일학습계획표 · 읽기 전용으로 되살립니다 */
 let curDay = 'MON';
 let curView = 'w';
@@ -842,7 +929,7 @@ function render(){
   if(!row){
     h+=`<div class="card"><div class="empty">이 주에는 기록이 없습니다</div></div>`;
   }else{
-    h+=`<div class="vtabs"><button class="vtab${curView==='w'?' on':''}" data-v="w">주간 계획 실행표</button><button class="vtab${curView==='d'?' on':''}" data-v="d">일일학습계획표</button></div>`;
+    h+=`<div class="vtabs"><button class="vtab${curView==='w'?' on':''}" data-v="w">주간 계획 실행표</button><button class="vtab${curView==='d'?' on':''}" data-v="d">일일학습계획표</button><button class="vtab${curView==='s'?' on':''}" data-v="s">상담 참고</button></div>`;
 
     /* 응원 한마디 · 학생 앱 위쪽에 그대로 뜹니다
        (약속은 상담일지의 «상담 후 변화 및 도움 주어야 할 것» 칸에서 씁니다) */
@@ -919,6 +1006,8 @@ function render(){
         <div class="card notes">${esc(row.note)}</div></div>`;
 
     }
+
+    if(curView==='s'){ h+=counselHTML(row); }
 
   }
 
