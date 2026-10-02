@@ -169,6 +169,11 @@
   .bnr textarea:focus{outline:none;border-color:var(--line2);background:var(--card)}
   .bnr .brow .bh{font-size:10.5px;color:var(--ink2);font-weight:500;margin-top:5px}
   .bnr .bfoot{display:flex;align-items:center;gap:10px;margin-top:2px}
+  .rpick{display:flex;align-items:center;gap:8px;margin:0 0 12px}
+  .rlab{font-size:11.5px;font-weight:800;color:var(--ink2)}
+  .rsel{font:inherit;font-size:12.5px;font-weight:700;color:var(--ink);cursor:pointer;
+    padding:6px 10px;border:1px solid var(--line2);border-radius:8px;background:var(--card)}
+  .rto{font-size:12px;color:var(--ink2);font-weight:700}
   .mhead{font-size:12.5px;font-weight:800;color:var(--c7);margin:-4px 0 12px}
   .wtrow{display:flex;gap:6px;flex-wrap:wrap;padding:0 2px 11px;
     border-bottom:1px solid var(--line);margin-bottom:-1px}
@@ -293,7 +298,7 @@
 
 <script>
 const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxtI3envfwIlbe_1N5jZZDNxPIpfp8DsOm0s4PD3dITCl-6z-DEfL7NNGUvty7IJ6s_GQ/exec';
-const APP_VER   = '2.1';
+const APP_VER   = '2.2';
 const SEMESTER_START = '2026-08-24';
 
 const CATS = [
@@ -779,6 +784,35 @@ function subjectTally(row){
 
 /* 상담은 한 달에 한 번이라, 보고 있는 주가 속한 «그 달» 전체를 모읍니다.
    달에 걸친 주(월말~월초)는 월요일이 속한 달로 봅니다 */
+/* 상담 참고에서 볼 범위 · 주차 번호로 잡습니다. null 이면 보고 있는 주가 속한 달 */
+let cRange = null;    /* {from, to} */
+
+/* 기록이 있는 주차들 */
+function weekOptions(){
+  return rows.filter(r=>r.week).map(r=>({w:r.week, n:weekNo(r.week)}))
+    .sort((a,b)=>a.n-b.n);
+}
+function rangeRows(){
+  const opts=weekOptions();
+  if(!opts.length) return [];
+  if(!cRange){
+    const a=Math.min(...opts.map(o=>o.n)), b=Math.max(...opts.map(o=>o.n));
+    cRange={from:a, to:b};
+  }
+  const lo=Math.min(cRange.from,cRange.to), hi=Math.max(cRange.from,cRange.to);
+  return rows.filter(r=>r.week && weekNo(r.week)>=lo && weekNo(r.week)<=hi)
+    .sort((a,b)=>a.week<b.week?-1:1);
+}
+function rangePicker(){
+  const opts=weekOptions();
+  if(!opts.length) return '';
+  const sel=(id,val)=>`<select class="rsel" id="${id}">`
+    + opts.map(o=>`<option value="${o.n}"${o.n===val?' selected':''}>${
+        o.n>=1?o.n+'주차':'학기 전'}</option>`).join('') + `</select>`;
+  return `<div class="rpick"><span class="rlab">볼 범위</span>
+    ${sel('rFrom',cRange.from)}<span class="rto">~</span>${sel('rTo',cRange.to)}</div>`;
+}
+
 function monthRows(week){
   const d=new Date(week+'T00:00:00');
   const y=d.getFullYear(), m=d.getMonth();
@@ -843,11 +877,14 @@ function subjectTally(ms){
 }
 
 function counselHTML(row){
-  const ms=monthRows(curWeek);
-  if(!ms.length) return `<div class="card"><div class="empty">이 달에는 기록이 없습니다</div></div>`;
+  const ms=rangeRows();
+  if(!ms.length) return rangePicker()
+    + `<div class="card"><div class="empty">이 범위에는 기록이 없습니다</div></div>`;
   const S=monthStats(ms);
-  const d0=new Date(curWeek+'T00:00:00');
-  const label=`${d0.getFullYear()}년 ${d0.getMonth()+1}월`;
+  const a=new Date(ms[0].week+'T00:00:00'), b=new Date(ms[ms.length-1].week+'T00:00:00');
+  const b2=addD(b,5);
+  const label=`${weekNo(ms[0].week)}주차 ~ ${weekNo(ms[ms.length-1].week)}주차`
+    + ` · ${a.getMonth()+1}/${a.getDate()} ~ ${b2.getMonth()+1}/${b2.getDate()}`;
 
   /* 하루 평균은 '쓴 날'로 나눕니다. 안 쓴 날까지 나누면 실제보다 작아집니다 */
   const perDay  = S.days? S.study/S.days : 0;
@@ -865,7 +902,7 @@ function counselHTML(row){
           <span class="cv">${hm(v.run)}</span>
           <span class="cn">계획 ${hm(v.plan)}</span></div>`).join('');
 
-  return `
+  return rangePicker() + `
   <div class="mhead">${label} · ${S.weeks}주치 · 일일학습계획표 ${S.days}일 작성</div>
 
   <div class="sec"><h2>① 시간의 정직<span>하나님이 주신 24시간을 정직하게 쓰고 있는가</span></h2>
@@ -1116,6 +1153,11 @@ function render(){
   document.querySelectorAll('.vtab').forEach(b=>b.onclick=()=>{
     curView=b.dataset.v; render(); window.scrollTo(0,0);
   });
+  const rf=$('rFrom'), rt=$('rTo');
+  if(rf&&rt){
+    rf.onchange=()=>{ cRange={from:+rf.value, to:+rt.value}; render(); };
+    rt.onchange=()=>{ cRange={from:+rf.value, to:+rt.value}; render(); };
+  }
   if($('pms')) $('pms').onclick=saveLog;
   if($('bsave')) $('bsave').onclick=()=>{ $('bhint').textContent='저장 중'; saveLog(); };
 
