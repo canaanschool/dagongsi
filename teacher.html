@@ -169,6 +169,12 @@
   .bnr textarea:focus{outline:none;border-color:var(--line2);background:var(--card)}
   .bnr .brow .bh{font-size:10.5px;color:var(--ink2);font-weight:500;margin-top:5px}
   .bnr .bfoot{display:flex;align-items:center;gap:10px;margin-top:2px}
+  .mhead{font-size:12.5px;font-weight:800;color:var(--c7);margin:-4px 0 12px}
+  .wtrow{display:flex;gap:6px;flex-wrap:wrap;padding:0 2px 11px;
+    border-bottom:1px solid var(--line);margin-bottom:-1px}
+  .wt{min-width:62px;padding:5px 8px;border-radius:7px;background:var(--soft);text-align:center}
+  .wtv{display:block;font-size:12.5px;font-weight:800;color:var(--ink)}
+  .wtd{display:block;font-size:10px;color:var(--ink2);font-weight:600;margin-top:1px}
   .c3{display:flex;align-items:baseline;gap:12px;padding:11px 2px;
     border-bottom:1px solid var(--line)}
   .c3:last-child{border-bottom:0}
@@ -771,54 +777,122 @@ function subjectTally(row){
   return Object.entries(out).sort((a,b)=>b[1].run-a[1].run);
 }
 
+/* 상담은 한 달에 한 번이라, 보고 있는 주가 속한 «그 달» 전체를 모읍니다.
+   달에 걸친 주(월말~월초)는 월요일이 속한 달로 봅니다 */
+function monthRows(week){
+  const d=new Date(week+'T00:00:00');
+  const y=d.getFullYear(), m=d.getMonth();
+  return rows.filter(r=>{
+    if(!r.week) return false;
+    const t=new Date(r.week+'T00:00:00');
+    return t.getFullYear()===y && t.getMonth()===m;
+  }).sort((a,b)=>a.week<b.week?-1:1);
+}
+
+/* 비율은 주별 퍼센트를 평균 내지 않고, 달 전체를 합쳐서 다시 계산합니다.
+   기록이 적은 주가 과하게 반영되는 것을 막기 위해서입니다 */
+function monthStats(ms){
+  let study=0, rest=0, planH=0, slot=0, filled=0, days=0;
+  let rateSum=0, rateN=0, tsE=0, tsR=0, tsAbs=0, tsN=0;
+  ms.forEach(r=>{
+    const LV=liveStats(r), V=LV||r;
+    study+=num(r.study); rest+=num(r.rest);
+    planH+=num(V.plan); slot+=num(V.fitSlot); filled+=num(V.filled);
+    const dn=num(r.days); days+=dn;
+    const rp=parseFloat(String(r.rate||'').replace('%',''));
+    if(!isNaN(rp) && dn){ rateSum+=rp*dn; rateN+=dn; }   /* 쓴 날 수로 가중 */
+    const c=num(r.tsCount);
+    if(c){ tsE+=num(r.tsEst); tsR+=num(r.tsReal); tsN+=c;
+           tsAbs+=Math.abs(num(r.tsDiff))*c; }
+  });
+  return { weeks:ms.length, study, rest, planH, slot, filled, days,
+    rate: rateN? Math.round(rateSum/rateN) : null,
+    slotPct: planH? Math.round(slot/planH*100) : null,
+    tsN, tsDiff: tsN? Math.round((tsR-tsE)*60/tsN) : null,
+    tsAcc: tsE? Math.max(0, Math.round((1 - tsAbs/60/tsE)*100)) : null };
+}
+
+/* 달 안의 주별 흐름 — 평균만 보면 추세가 안 보입니다 */
+function weekTrend(ms, pick){
+  if(ms.length<2) return '';
+  const cells=ms.map(r=>{
+    const d=new Date(r.week+'T00:00:00');
+    const v=pick(r);
+    return `<div class="wt"><span class="wtv">${v===null?'—':v}</span>
+      <span class="wtd">${d.getMonth()+1}/${d.getDate()}</span></div>`;
+  }).join('');
+  return `<div class="wtrow">${cells}</div>`;
+}
+
+function subjectTally(ms){
+  const out={};
+  ms.forEach(row=>{
+    const P=unpack(row.grid&&row.grid.p), R=unpack(row.grid&&row.grid.r);
+    const NPx=spreadNames(row.grid&&row.grid.np), NRx=spreadNames(row.grid&&row.grid.nr);
+    const add=(g,nm,key)=>{
+      Object.keys(g||{}).forEach(k=>{
+        if(g[k]!=='T') return;              /* 격자는 한 글자 기호 · T = 공부 */
+        const n2=(nm[k]||'').trim(); if(!n2) return;
+        out[n2]=out[n2]||{plan:0,run:0};
+        out[n2][key]+=0.5;
+      });
+    };
+    add(P,NPx,'plan'); add(R,NRx,'run');
+  });
+  return Object.entries(out).sort((a,b)=>b[1].run-a[1].run);
+}
+
 function counselHTML(row){
-  const LV=liveStats(row), V=LV||row;
-  const days=num(row.days)||0;
-  const study=num(row.study), rest=num(row.rest), play=0;
-  const perDay = days? study/days : study/6;
-  const sleepDay = rest/6;
-  const planH=num(V.plan), slot=num(V.fitSlot);
-  const slotPct = planH? Math.round(slot/planH*100) : 0;
-  const cnt=num(row.tsCount), tsd=num(row.tsDiff);
-  const subs=subjectTally(row);
+  const ms=monthRows(curWeek);
+  if(!ms.length) return `<div class="card"><div class="empty">이 달에는 기록이 없습니다</div></div>`;
+  const S=monthStats(ms);
+  const d0=new Date(curWeek+'T00:00:00');
+  const label=`${d0.getFullYear()}년 ${d0.getMonth()+1}월`;
 
-  const r3=(label,val,note)=>`<div class="c3"><span class="cl">${label}</span>
-    <span class="cv">${val}</span>${note?`<span class="cn">${note}</span>`:''}</div>`;
+  /* 하루 평균은 '쓴 날'로 나눕니다. 안 쓴 날까지 나누면 실제보다 작아집니다 */
+  const perDay  = S.days? S.study/S.days : 0;
+  const sleepDay= S.weeks? S.rest/(S.weeks*6) : 0;
+  const subs=subjectTally(ms);
 
-  let subHTML;
-  if(!subs.length){
-    subHTML=`<div class="cnone">공부 칸에 과목 이름을 붙이면 여기에 과목별 시간이 모입니다 ·
-      지금은 붙은 것이 없습니다</div>`;
-  }else{
-    subHTML=subs.map(([nm,v])=>
-      `<div class="c3"><span class="cl">${esc(nm)}</span>
-        <span class="cv">${hm(v.run)}</span>
-        <span class="cn">계획 ${hm(v.plan)}</span></div>`).join('');
-  }
+  const r3=(label,val,note,trend)=>`<div class="c3"><span class="cl">${label}</span>
+    <span class="cv">${val}</span>${note?`<span class="cn">${note}</span>`:''}</div>${trend||''}`;
+
+  const subHTML = !subs.length
+    ? `<div class="cnone">공부 칸에 과목 이름을 붙이면 여기에 과목별 시간이 모입니다 ·
+        이 달에는 붙은 것이 없습니다</div>`
+    : subs.map(([nm,v])=>
+        `<div class="c3"><span class="cl">${esc(nm)}</span>
+          <span class="cv">${hm(v.run)}</span>
+          <span class="cn">계획 ${hm(v.plan)}</span></div>`).join('');
 
   return `
+  <div class="mhead">${label} · ${S.weeks}주치 · 일일학습계획표 ${S.days}일 작성</div>
+
   <div class="sec"><h2>① 시간의 정직<span>하나님이 주신 24시간을 정직하게 쓰고 있는가</span></h2>
     <div class="card">
-      ${r3('하루 순공부 시간', hm(perDay), `한 주 ${fmt(study)}h · ${days||6}일 기준`)}
-      ${r3('수면 · 생활 균형', hm(sleepDay)+' 수면', `한 주 ${fmt(rest)}h`)}
-      ${r3('시간 배분 계획', fmt(planH)+'h 계획', `채운 시간 ${fmt(num(V.filled))}h`)}
-      ${readout(readFit(V))}
+      ${r3('하루 순공부 시간', hm(perDay), `달 합계 ${fmt(S.study)}h · 쓴 날 ${S.days}일 기준`,
+          weekTrend(ms, r=>{ const dn=num(r.days); return dn? fmt(num(r.study)/dn)+'h' : '—'; }))}
+      ${r3('수면 · 생활 균형', hm(sleepDay)+' 수면', `달 합계 ${fmt(S.rest)}h`)}
+      ${r3('시간 배분 계획', fmt(S.planH)+'h 계획', `채운 시간 ${fmt(S.filled)}h`)}
     </div></div>
 
   <div class="sec"><h2>② 노력의 정직<span>그 시간에 최선을 다하고 있는가</span></h2>
     <div class="card">
-      ${r3('목표 달성률', pct(row.rate), `계획 대비 실천 · ${days}일 작성`)}
-      ${r3('소요 시간 인식', cnt?pct(row.tsAcc):'—',
-            cnt?`예상 정확도 · 한 건당 ${(tsd>0?'+':'')+tsd}m · ${cnt}개 기준`
-               :'중등만 · 예상과 실행이 모두 적힌 항목이 없습니다')}
-      ${r3('집중도 · 성실도', slotPct+'%',
-            `딱 맞춤 ${fmt(slot)}h / 계획 ${fmt(planH)}h`)}
-      ${cnt?readout(readAcc(row.tsAcc,cnt)):''}
+      ${r3('목표 달성률', S.rate===null?'—':S.rate+'%', `계획 대비 실천 · 쓴 날로 가중 평균`,
+          weekTrend(ms, r=>{ const v=parseFloat(String(r.rate||'').replace('%','')); 
+            return isNaN(v)?null:Math.round(v)+'%'; }))}
+      ${r3('소요 시간 인식', S.tsAcc===null?'—':S.tsAcc+'%',
+          S.tsN? `예상 정확도 · 한 건당 ${(S.tsDiff>0?'+':'')+S.tsDiff}m · ${S.tsN}개 기준`
+               : '중등만 · 예상과 실행이 모두 적힌 항목이 없습니다')}
+      ${r3('집중도 · 성실도', S.slotPct===null?'—':S.slotPct+'%',
+          `딱 맞춤 ${fmt(S.slot)}h / 계획 ${fmt(S.planH)}h`,
+          weekTrend(ms, r=>{ const LV=liveStats(r), V=LV||r;
+            const p=num(V.plan); return p? Math.round(num(V.fitSlot)/p*100)+'%' : null; }))}
     </div></div>
 
   <div class="sec"><h2>③ 실력의 정직<span>내 위치를 정직하게 진단하고 바르게 나아가는가</span></h2>
     <div class="card">
-      <div class="csub">과목별 공부 시간 <em>실행 기준</em></div>
+      <div class="csub">과목별 공부 시간 <em>이 달 · 실행 기준</em></div>
       ${subHTML}
       <div class="cask">좋아하는 과목 · 어려워하는 과목 · 현재 위치는
         상담하며 직접 들어 보고 아래 상담일지에 적습니다</div>
