@@ -400,7 +400,7 @@ const PIN       = '1225';   /* 시트에서 기록을 불러올 때만 씁니다
    그 기기는 이름을 기억하지 않고, 열 때마다 누구인지 묻습니다 */
 const SHARED = /[?&]shared\b/.test(location.search);
 /* 학기 첫 주의 월요일. 여기 기준으로 몇 주차인지 셉니다. */
-const APP_VER = '2.0';
+const APP_VER = '2.1';
 const SEMESTER_START = '2026-08-24';   /* 개학 8/27이 속한 주의 월요일 = 1주차 */
 
 const CATS = [
@@ -1165,8 +1165,10 @@ function fixTime(v){
   return fmtTime(d);
 }
 
+/* 학생이 ○ △ → 중 하나를 고른 항목만 셉니다.
+   아직 아무것도 안 고른 날은 0% 가 아니라 '없음'(null) 입니다 */
 function dayRate(d){
-  const t=d.todos.filter(r=>r.t.trim());
+  const t=d.todos.filter(r=>r.t.trim() && r.st!==0);
   if(!t.length) return null;
   const sum=t.reduce((a,r)=>a+Math.max(0,r.st),0);
   return Math.round(sum/t.length);
@@ -1175,9 +1177,12 @@ function renderGauge(){
   const t=D().todos.filter(r=>r.t.trim());
   const full=t.filter(r=>r.st===100).length, half=t.filter(r=>r.st===50).length;
   const push=t.filter(r=>r.st===-1).length;
-  const pct=dayRate(D()) ?? 0;
-  $('pct').innerHTML=`${pct}%<em>${t.length
+  const dr=dayRate(D());
+  const pct=dr ?? 0;
+  const marked=full+half+push;
+  $('pct').innerHTML=`${dr===null?'—':pct+'%'}<em>${t.length
     ? `${t.length}개 중 다함 ${full}${half?` · 반쯤 ${half}`:''}${push?` · 내일로 ${push}`:''}`
+      + (marked<t.length?` · 아직 ${t.length-marked}개`:'')
     : '할 일을 적어보세요'}</em>`;
   $('gauge').innerHTML=Array.from({length:5},(_,i)=>{
     const f=Math.max(0,Math.min(1,pct/20-i));
@@ -1529,10 +1534,14 @@ function summarize(){
   const R=tally('run'), F=fitness();
   let sum=0,tot=0,days=0;
   DAYS.forEach(k=>{
-    const t=W.daily[k].todos.filter(x=>x.t.trim());
+    /* 공부로 칠하면 일일학습계획표에 줄이 저절로 생깁니다.
+       그래서 '적혀 있는 것'이 아니라 '학생이 ○ △ → 중 하나를 고른 것'만 셉니다.
+       아무것도 안 고른 항목까지 0점으로 세면, 주간표만 칠하고 일일표를 안 쓴 날이
+       0% 로 찍혀서 '못 했다'와 '표시를 안 했다'가 구분되지 않습니다 */
+    const t=W.daily[k].todos.filter(x=>x.t.trim() && x.st!==0);
     if(t.length) days++;
     tot+=t.length;
-    sum+=t.reduce((a,r)=>a+Math.max(0,r.st),0);   /* 100 / 50 / 0 · 내일로(-1)는 0 */
+    sum+=t.reduce((a,r)=>a+Math.max(0,r.st),0);   /* 100 / 50 · 내일로(-1)는 0 */
   });
   const blank=R.blank.reduce((a,b)=>a+b,0);
   const filled=R.total.reduce((a,b)=>a+b,0);
